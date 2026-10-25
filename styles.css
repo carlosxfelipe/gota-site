@@ -55,7 +55,7 @@
   --bg-card: #ffffff;
   --bg-card-hover: #f1f5f9;
   --bg-surface: #f1f5f9;
-  --bg-code: #0b1120;
+  --bg-code: #ffffff;
   --bg-subtle: rgba(0, 0, 0, 0.03);
   --bg-header: rgba(248, 250, 252, 0.88);
 
@@ -76,6 +76,14 @@
   --cyan: #0284c7;
   --cyan-subtle: rgba(2, 132, 199, 0.08);
   --cyan-border: rgba(2, 132, 199, 0.25);
+
+  /* Code Syntax Tokens (Light Theme) */
+  --tok-kw: #cf222e;
+  --tok-type: #0550ae;
+  --tok-fn: #047857;
+  --tok-str: #b45309;
+  --tok-tag: #8250df;
+  --tok-comment: #6e7781;
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
   --shadow-card:
@@ -563,7 +571,7 @@ pre {
   font-family: var(--font-mono);
   font-size: 0.875rem;
   line-height: 1.65;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 code {
