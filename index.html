@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gota Framework — Zero-Dependency REPR Web Framework for Go</title>
+    <meta
+      name="description"
+      content="Minimalist, zero-dependency Go web micro-framework built around the REPR pattern with native Scalar and OpenAPI 3.1 documentation."
+    />
+    <link rel="icon" type="image/svg+xml" href="logo.svg" />
+
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="styles.css" />
+
+    <script src="app.js"></script>
+  </head>
+  <body>
+    <!-- ========================================================================
+       Header & Navigation
+       ======================================================================== -->
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <a href="#" class="brand" aria-label="Gota Framework">
+          <span class="brand-icon">
+            <img src="logo.svg" alt="Gota Logo" />
+          </span>
+          <span>Gota</span>
+        </a>
+
+        <nav aria-label="Main Navigation">
+          <ul class="nav-menu">
+            <li><a href="#repr" class="nav-link">REPR Pattern</a></li>
+            <li><a href="#ai-spec" class="nav-link">AI & llms.txt</a></li>
+            <li><a href="#features" class="nav-link">Features</a></li>
+            <li><a href="#quickstart" class="nav-link">Quickstart</a></li>
+            <li>
+              <a href="llms.txt" target="_blank" class="nav-link">llms.txt</a>
+            </li>
+          </ul>
+        </nav>
+
+        <div class="nav-actions">
+          <!-- Dark/Light Theme Toggle -->
+          <button
+            class="theme-toggle-btn"
+            id="theme-toggle"
+            aria-label="Toggle dark/light theme"
+            onclick="toggleTheme()"
+          >
+            <!-- Sun Icon (shown in dark mode to switch to light) -->
+            <svg
+              class="icon-sun"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="4"></circle>
+              <path d="M12 2v2"></path>
+              <path d="M12 20v2"></path>
+              <path d="m4.93 4.93 1.41 1.41"></path>
+              <path d="m17.66 17.66 1.41 1.41"></path>
+              <path d="M2 12h2"></path>
+              <path d="M20 12h2"></path>
+              <path d="m6.34 17.66-1.41 1.41"></path>
+              <path d="m19.07 4.93-1.41 1.41"></path>
+            </svg>
+            <!-- Moon Icon (shown in light mode to switch to dark) -->
+            <svg
+              class="icon-moon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+            </svg>
+          </button>
+
+          <!-- GitHub Link -->
+          <a
+            href="https://github.com/carlosxfelipe/gota"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-secondary btn-sm"
+          >
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+              />
+            </svg>
+            <span>GitHub</span>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- ========================================================================
+       Hero Section
+       ======================================================================== -->
+    <main>
+      <section class="hero">
+        <div class="container">
+          <div class="hero-pill">
+            <span class="hero-pill-dot"></span>
+            <span>Gota Framework • Go 1.26+</span>
+          </div>
+
+          <h1 class="hero-title">
+            Zero-Dependency <br />
+            <span class="hero-title-accent">REPR Micro-Framework</span> for Go
+          </h1>
+
+          <p class="hero-subtitle">
+            Built entirely on the Go standard library. Type-safe
+            <strong>Request-Endpoint-Response</strong> architecture, automated
+            binding & validation, and native interactive
+            <strong>Scalar</strong> documentation.
+          </p>
+
+          <!-- Install Bar -->
+          <div class="install-bar">
+            <span class="install-cmd"
+              ><span class="prompt">$</span>go get
+              github.com/carlosxfelipe/gota</span
+            >
+            <button
+              class="copy-icon-btn"
+              onclick="
+                copyText(
+                  'go get github.com/carlosxfelipe/gota',
+                  'Command copied to clipboard!',
+                )
+              "
+              aria-label="Copy install command"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path
+                  d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                ></path>
+              </svg>
+            </button>
+          </div>
+
+          <div class="hero-actions">
+            <a href="#quickstart" class="btn btn-primary">Get Started</a>
+            <a href="#repr" class="btn btn-secondary">Explore REPR Pattern</a>
+            <a href="llms.txt" target="_blank" class="btn btn-secondary">
+              <span>llms.txt</span>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                ></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================
+         AI Skills & llms.txt (Developer / Agent specification)
+         ======================================================================== -->
+      <section class="section-ai" id="ai-spec">
+        <div class="container">
+          <div class="ai-grid">
+            <!-- Card 1: llms.txt standard -->
+            <div class="ai-card">
+              <div class="ai-card-header">
+                <div class="ai-card-icon">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m18 16 4-4-4-4"></path>
+                    <path d="m6 8-4 4 4 4"></path>
+                    <path d="m14.5 4-5 16"></path>
+                  </svg>
+                </div>
+                <h2 class="ai-card-title">llms.txt Specification</h2>
+              </div>
+              <p class="ai-card-text">
+                Provides the complete framework specification in Markdown format
+                for AI coding tools (<strong>Claude Code</strong>,
+                <strong>Cursor</strong>, <strong>Windsurf</strong>,
+                <strong>OpenCode</strong>) to prevent hallucinations and
+                generate accurate REPR code.
+              </p>
+              <div class="ai-card-actions">
+                <a
+                  href="llms.txt"
+                  target="_blank"
+                  class="btn btn-primary btn-sm"
+                  >Read llms.txt</a
+                >
+                <button class="btn btn-secondary btn-sm" onclick="copyPrompt()">
+                  Copy Prompt
+                </button>
+              </div>
+            </div>
+
+            <!-- Card 2: Zero Dependencies -->
+            <div class="ai-card">
+              <div class="ai-card-header">
+                <div class="ai-card-icon">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+                    <path d="m9 12 2 2 4-4"></path>
+                  </svg>
+                </div>
+                <h2 class="ai-card-title">Zero External Dependencies</h2>
+              </div>
+              <p class="ai-card-text">
+                Built 100% on the Go standard library (<code>net/http</code>,
+                <code>reflect</code>, <code>encoding/json</code>,
+                <code>crypto</code>). No heavy dependency trees, zero
+                supply-chain CVE vulnerabilities, and instant compilation.
+              </p>
+              <div class="ai-card-actions">
+                <a href="#features" class="btn btn-secondary btn-sm"
+                  >View Capabilities</a
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================
+         REPR Interactive Section (Code Tabs)
+         ======================================================================== -->
+      <section class="section-repr" id="repr">
+        <div class="container">
+          <div class="section-header">
+            <span class="section-tag">Architecture</span>
+            <h2 class="section-heading">The REPR Design Pattern</h2>
+            <p class="section-desc">
+              Single responsibility per operation: cohesive units of
+              <strong>Request</strong>, <strong>Endpoint</strong>, and
+              <strong>Response</strong>.
+            </p>
+          </div>
+
+          <div class="code-window">
+            <div class="code-window-bar">
+              <div class="code-tabs">
+                <button
+                  class="code-tab-btn active"
+                  id="tab-btn-req"
+                  onclick="switchTab('req')"
+                >
+                  1. Request DTO
+                </button>
+                <button
+                  class="code-tab-btn"
+                  id="tab-btn-ep"
+                  onclick="switchTab('ep')"
+                >
+                  2. Endpoint Handler
+                </button>
+                <button
+                  class="code-tab-btn"
+                  id="tab-btn-res"
+                  onclick="switchTab('res')"
+                >
+                  3. Response DTO
+                </button>
+                <button
+                  class="code-tab-btn"
+                  id="tab-btn-doc"
+                  onclick="switchTab('doc')"
+                >
+                  4. Scalar OpenAPI 3.1
+                </button>
+              </div>
+              <div class="code-window-actions">
+                <button
+                  class="copy-icon-btn"
+                  onclick="copyCurrentTabCode()"
+                  aria-label="Copy code"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect
+                      x="9"
+                      y="9"
+                      width="13"
+                      height="13"
+                      rx="2"
+                      ry="2"
+                    ></rect>
+                    <path
+                      d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                    ></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Tab 1: Request -->
+            <div class="code-content" id="tab-pane-req">
+              <pre><code><span class="t-comm">// Automated binding across route params, query, headers, form, and JSON body</span>
+<span class="t-kw">type</span> <span class="t-type">CreateUserRequest</span> <span class="t-kw">struct</span> {
+    Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" doc:"Full Name" example:"Jane Doe" validate:"required,min=3"`</span>
+    Email <span class="t-type">string</span> <span class="t-tag">`json:"email" doc:"Corporate email" example:"jane@corp.com" validate:"required,email"`</span>
+    Role  <span class="t-type">string</span> <span class="t-tag">`query:"role,omitempty" doc:"User role" validate:"oneof=Admin,Customer"`</span>
+}
+
+<span class="t-comm">// Optional: Custom struct business validation</span>
+<span class="t-kw">func</span> (r *<span class="t-type">CreateUserRequest</span>) <span class="t-fn">Validate</span>() <span class="t-type">error</span> {
+    <span class="t-kw">if</span> strings.HasSuffix(r.Email, <span class="t-str">"@tempmail.com"</span>) {
+        <span class="t-kw">return</span> errors.<span class="t-fn">New</span>(<span class="t-str">"disposable emails are not permitted"</span>)
+    }
+    <span class="t-kw">return</span> <span class="t-kw">nil</span>
+}</code></pre>
+            </div>
+
+            <!-- Tab 2: Endpoint -->
+            <div class="code-content" id="tab-pane-ep" style="display: none">
+              <pre><code><span class="t-comm">// Function-based generic endpoint with fluent Kite-like metadata</span>
+gota.<span class="t-fn">Post</span>(app, <span class="t-str">"/api/users"</span>, <span class="t-kw">func</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">CreateUserRequest</span>) (<span class="t-type">UserResponse</span>, <span class="t-type">error</span>) {
+    <span class="t-comm">// 1. Parameter binding has already executed automatically</span>
+    <span class="t-comm">// 2. Declarative tags and Validate() have already passed</span>
+
+    user := <span class="t-type">UserResponse</span>{
+        ID:    <span class="t-str">"usr_100"</span>,
+        Name:  req.Name,
+        Email: req.Email,
+    }
+
+    <span class="t-kw">return</span> user, <span class="t-kw">nil</span> <span class="t-comm">// Serialized as JSON with 200 OK (or configured status)</span>
+}).
+    <span class="t-fn">Summary</span>(<span class="t-str">"Register new user"</span>).
+    <span class="t-fn">Description</span>(<span class="t-str">"Creates account and returns user profile"</span>).
+    <span class="t-fn">Tags</span>(<span class="t-str">"Users"</span>).
+    <span class="t-fn">Status</span>(http.StatusCreated)</code></pre>
+            </div>
+
+            <!-- Tab 3: Response -->
+            <div class="code-content" id="tab-pane-res" style="display: none">
+              <pre><code><span class="t-comm">// Strongly typed response contract</span>
+<span class="t-kw">type</span> <span class="t-type">UserResponse</span> <span class="t-kw">struct</span> {
+    ID    <span class="t-type">string</span> <span class="t-tag">`json:"id" example:"usr_100"`</span>
+    Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" example:"Jane Doe"`</span>
+    Email <span class="t-type">string</span> <span class="t-tag">`json:"email" example:"jane@corp.com"`</span>
+}
+
+<span class="t-comm">// Special response types supported natively:</span>
+<span class="t-comm">// - gota.Empty{}       -> Renders HTTP 204 No Content</span>
+<span class="t-comm">// - gota.StreamFunc    -> Chunked byte stream (application/octet-stream)</span>
+<span class="t-comm">// - gota.SSEStream     -> Server-Sent Events live stream (text/event-stream)</span></code></pre>
+            </div>
+
+            <!-- Tab 4: Scalar / OpenAPI -->
+            <div class="code-content" id="tab-pane-doc" style="display: none">
+              <pre><code><span class="t-comm">// Interactive Scalar documentation served out of the box at /docs</span>
+<span class="t-comm">// Schema exposed at /openapi.json</span>
+
+app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span>{
+    Title:        <span class="t-str">"My API"</span>,
+    Version:      <span class="t-str">"1.0.0"</span>,
+    DocsURL:      <span class="t-str">"/docs"</span>,            <span class="t-comm">// Default: /docs</span>
+    OpenAPIURL:   <span class="t-str">"/openapi.json"</span>,    <span class="t-comm">// Default: /openapi.json</span>
+    ScalarTheme:  gota.ThemeFastify,  <span class="t-comm">// Default: Fastify Theme</span>
+    ScalarLayout: <span class="t-str">"classic"</span>,          <span class="t-comm">// Default: classic layout (Swagger-style)</span>
+})
+
+<span class="t-comm">// Zero YAML or JSON annotations required.</span>
+<span class="t-comm">// OpenAPI 3.1 is derived directly from Go struct types and tags!</span></code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================
+         Features Grid (SVG Line Icons Only)
+         ======================================================================== -->
+      <section class="section-features" id="features">
+        <div class="container">
+          <div class="section-header">
+            <span class="section-tag">Capabilities</span>
+            <h2 class="section-heading">Built for Production</h2>
+            <p class="section-desc">
+              Essential micro-framework primitives without third-party baggage.
+            </p>
+          </div>
+
+          <div class="features-grid">
+            <div class="feature-item">
+              <div class="feature-icon-box">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                  <polyline points="2 17 12 22 22 17"></polyline>
+                  <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+              </div>
+              <h3>Zero External Dependencies</h3>
+              <p>
+                Router, JSON binder, JWT token verification, and OpenAPI
+                generator are implemented exclusively on standard library
+                primitives.
+              </p>
+            </div>
+
+            <div class="feature-item">
+              <div class="feature-icon-box">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"
+                  ></path>
+                  <path d="M6 6h10"></path>
+                  <path d="M6 10h10"></path>
+                </svg>
+              </div>
+              <h3>Scalar UI & OpenAPI 3.1</h3>
+              <p>
+                Interactive API reference rendered via Scalar with classic
+                layout and Fastify theme at <code>/docs</code>, with schema
+                exposed at <code>/openapi.json</code>.
+              </p>
+            </div>
+
+            <div class="feature-item">
+              <div class="feature-icon-box">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect
+                    width="18"
+                    height="11"
+                    x="3"
+                    y="11"
+                    rx="2"
+                    ry="2"
+                  ></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+              </div>
+              <h3>Built-in HS256 JWT</h3>
+              <p>
+                Token signing, verification, and claims middleware:
+                <code>gota.SignJWT</code>, <code>gota.VerifyJWT</code>, and
+                <code>gota.JWTClaims[T]</code>.
+              </p>
+            </div>
+
+            <div class="feature-item">
+              <div class="feature-icon-box">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path>
+                </svg>
+              </div>
+              <h3>Production Middlewares</h3>
+              <p>
+                CORS with automatic OPTIONS preflight, UUID v4 RequestID,
+                structured <code>SlogLogger</code>, and panic
+                <code>Recover</code>.
+              </p>
+            </div>
+
+            <div class="feature-item">
+              <div class="feature-icon-box">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M2 12h20"></path>
+                  <path d="M20 12l-4-4"></path>
+                  <path d="M20 12l-4 4"></path>
+                  <path d="M2 6h12"></path>
+                  <path d="M2 18h16"></path>
+                </svg>
+              </div>
+              <h3>Native Streaming & SSE</h3>
+              <p>
+                Typed chunked streaming via <code>gota.StreamFunc</code> and
+                real-time Server-Sent Events via
+                <code>gota.SSEStream</code> with channel synchronization.
+              </p>
+            </div>
+
+            <div class="feature-item">
+              <div class="feature-icon-box">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="6" x2="12" y2="12"></line>
+                  <line x1="12" y1="12" x2="16" y2="16"></line>
+                </svg>
+              </div>
+              <h3>Graceful Shutdown</h3>
+              <p>
+                Signal trapping for SIGINT and SIGTERM:
+                <code>app.ListenGraceful</code> completes in-flight requests
+                before shutting down.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================
+         Quickstart Section
+         ======================================================================== -->
+      <section class="section-repr" id="quickstart">
+        <div class="container">
+          <div class="section-header">
+            <span class="section-tag">Quickstart</span>
+            <h2 class="section-heading">Up and Running in 60 Seconds</h2>
+            <p class="section-desc">
+              A complete REST API with auto-generated documentation in a single
+              file.
+            </p>
+          </div>
+
+          <div class="code-window">
+            <div class="code-window-bar">
+              <div class="code-tabs">
+                <span class="code-tab-btn active">main.go</span>
+              </div>
+              <div class="code-window-actions">
+                <button
+                  class="copy-icon-btn"
+                  onclick="copyQuickstartCode()"
+                  aria-label="Copy main.go code"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect
+                      x="9"
+                      y="9"
+                      width="13"
+                      height="13"
+                      rx="2"
+                      ry="2"
+                    ></rect>
+                    <path
+                      d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                    ></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="code-content">
+              <pre><code id="quickstart-code"><span class="t-kw">package</span> main
+
+<span class="t-kw">import</span> (
+    <span class="t-str">"log"</span>
+    <span class="t-str">"github.com/carlosxfelipe/gota"</span>
+)
+
+<span class="t-kw">type</span> <span class="t-type">HelloRequest</span> <span class="t-kw">struct</span> {
+    Name <span class="t-type">string</span> <span class="t-tag">`query:"name" default:"World"`</span>
+}
+
+<span class="t-kw">type</span> <span class="t-type">HelloResponse</span> <span class="t-kw">struct</span> {
+    Message <span class="t-type">string</span> <span class="t-tag">`json:"message"`</span>
+}
+
+<span class="t-kw">func</span> <span class="t-fn">main</span>() {
+    app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span>{
+        Title:   <span class="t-str">"Hello API"</span>,
+        Version: <span class="t-str">"1.0.0"</span>,
+    })
+
+    gota.<span class="t-fn">Get</span>(app, <span class="t-str">"/hello"</span>, <span class="t-kw">func</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">HelloRequest</span>) (<span class="t-type">HelloResponse</span>, <span class="t-type">error</span>) {
+        <span class="t-kw">return</span> <span class="t-type">HelloResponse</span>{Message: <span class="t-str">"Hello, "</span> + req.Name + <span class="t-str">"!"</span>}, <span class="t-kw">nil</span>
+    }).
+        <span class="t-fn">Summary</span>(<span class="t-str">"Say Hello"</span>).
+        <span class="t-fn">Tags</span>(<span class="t-str">"Greeting"</span>)
+
+    log.<span class="t-fn">Fatal</span>(app.<span class="t-fn">ListenGraceful</span>(<span class="t-str">":3000"</span>))
+}</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ========================================================================
+       Footer
+       ======================================================================== -->
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <ul class="footer-nav">
+          <li>
+            <a
+              href="https://github.com/carlosxfelipe/gota"
+              target="_blank"
+              rel="noopener noreferrer"
+              >GitHub</a
+            >
+          </li>
+          <li><a href="llms.txt" target="_blank">llms.txt</a></li>
+          <li><a href="#quickstart">Quickstart</a></li>
+          <li><a href="#repr">REPR Pattern</a></li>
+        </ul>
+        <p class="footer-copy">
+          MIT License © 2026 Carlos Felipe • Gota Framework • Go 1.26+
+        </p>
+      </div>
+    </footer>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast" role="status" aria-live="polite">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      <span id="toast-text">Copied to clipboard!</span>
+    </div>
+  </body>
+</html>
