@@ -100,6 +100,8 @@ Gota automatically binds fields from five sources using struct tags:
 | `form:"name"`       | Form field or file upload (multipart/urlencoded) | `Avatar *multipart.FileHeader \`form:"avatar"\`` |
 | `json:"name"`       | JSON Request Body                                | `Title string \`json:"title"\``                  |
 | `validate:"rules"`  | Validation rules (comma-separated)               | `validate:"required,min=3,email"`                |
+| `msg:"messages"`    | Custom validation error message(s)               | `msg:"required:name is required\|min:too short"`  |
+| `message:"text"`    | Alias for `msg` tag                              | `message:"invalid age"`                          |
 | `doc:"description"` | OpenAPI parameter/field description              | `doc:"User email address"`                       |
 | `example:"val"`     | OpenAPI example value                            | `example:"jane@example.com"`                     |
 | `format:"fmt"`      | OpenAPI schema format hint                       | `format:"date-time"`                             |
@@ -124,13 +126,32 @@ Pointer fields (`*int`, `*bool`, `*string`, ...) are supported for **every** sou
 
 Nested struct fields (e.g. `Address AddressDTO`) and slices of structs (e.g. `Items []ItemDTO`) are validated automatically and recursively. Validation errors preserve property hierarchy paths (e.g. `address.street` and `items[0].price`).
 
-> **Fail-Fast Tag Verification**: Gota verifies all `validate` tags at startup during route registration via `validation.CheckTags`, recursing into nested structs. If a rule name is misspelled (e.g. `validate:"requried"`) or a numeric parameter is missing or invalid (e.g. `min=abc`), Gota **panics immediately** upon registration to prevent silent security regressions.
+> **Fail-Fast Tag Verification & Suggestions**: Gota verifies all tags at startup during route registration via `validation.CheckTags`, recursing into nested structs. If an unsupported tag is used (e.g. `path:"id"` instead of `param:"id"`), a rule name is misspelled (e.g. `validate:"requried"`), or a numeric parameter is missing or invalid (e.g. `min=abc`), Gota **panics immediately** upon registration with actionable hints (e.g. suggesting `min` for `gte`, `max` for `lte`, etc.) to prevent silent bugs.
 >
-> **Primitive `required` Warnings**: In Go, primitive non-pointer types (`bool`, `int`, etc.) default to zero values (`false`, `0`). Tagging them with `validate:"required"` causes explicit zero values to fail validation. Gota logs a startup warning advising the use of pointers (`*bool`, `*int`). You can silence this per-field with `validate:"...,nowarn"` or `gota:"nowarn"`, or globally via `Config.SilenceTagWarnings: true` / `gota.SilenceTagWarnings(true)`.
+> **Startup Tag Warnings**: Gota logs non-fatal warnings at startup to educate developers and AI agents on common anti-patterns:
+> 1. `validate:"omitempty"`: In Gota, fields are optional by default unless marked with `required`. `omitempty` is accepted as a no-op but logs a reminder warning that it can be safely removed.
+> 2. Primitive `required`: In Go, primitive non-pointer types (`bool`, `int`, etc.) default to zero values (`false`, `0`), which fail `validate:"required"`. Gota logs a warning advising pointers (`*bool`, `*int`).
+> Warnings can be silenced per-field with `validate:"...,nowarn"` or `gota:"nowarn"`, or globally via `Config.SilenceTagWarnings: true` / `gota.SilenceTagWarnings(true)`.
 
 #### OpenAPI schemas for nested types:
 
 Nested struct fields are documented with their full `properties`: named structs (e.g. `Address AddressDTO`, `Items []ItemDTO`) become entries in `components.schemas` referenced via `$ref`, and anonymous inline structs are expanded in place. Self-referencing and mutually recursive types (e.g. `type Node struct { Next *Node }`) are supported and resolved through `$ref`, without infinite recursion. Two types with the same name in different packages get distinct schemas (the second is prefixed with its package name).
+
+#### Custom Validation Error Messages (`msg` / `message` tags):
+
+Fields can customize error messages instead of standard default text. Two formats are supported:
+
+1. **Fallback message for any failed rule on the field:**
+   ```go
+   Age int `json:"age" validate:"min=18" msg:"You must be at least 18 years old."`
+   ```
+
+2. **Rule-specific messages separated by `|` (rule:message):**
+   ```go
+   FullName string `json:"fullName" validate:"required,min=5" msg:"required:Your name is required!|min:Your name is too short!"`
+   ```
+   Optional `{field}` token expands to the field's JSON/param property name (e.g. `msg:"required:field {field} is mandatory"`).
+   The `message` tag is an alias for `msg`. `CheckTags` verifies at startup that all rules referenced in `msg` exist in `validate` to catch typos fast.
 
 #### Custom Struct Validation (`Validator` & `ContextValidator`):
 
@@ -471,8 +492,8 @@ app.Get("/healthz", func(ctx *gota.Context) error {
 5. ❌ **Do NOT manually encode JSON responses in REPR**: Return the response struct directly: `return MyResponse{...}, nil`.
 6. ❌ **Do NOT omit error from handler returns**: Handlers must always return `(Res, error)`.
 7. ❌ **Do NOT import third-party packages for Gota features**: Gota has built-in CORS, JWT, Logger, Recover, Validator, Scalar UI, and OpenAPI generator without requiring any external module dependencies.
-8. ❌ **Do NOT mistype validation tags**: Gota validates all `validate` rules at startup; unknown rules or invalid arguments trigger an intentional `panic` during route registration.
-9. ❌ **Do NOT use `omitempty` in `validate:` tags**: Fields in Gota are optional by default unless marked with `required`. Adding `omitempty` is unnecessary and will be rejected by `CheckTags` as an unknown validation rule.
+8. ❌ **Do NOT mistype validation tags**: Gota validates all struct and `validate` tags at startup; unknown rules, invalid arguments, or anti-patterns like `path:"id"` trigger an intentional `panic` with corrective hints during route registration.
+9. ❌ **Do NOT use `omitempty` in `validate:` tags**: Fields in Gota are optional by default unless marked with `required`. Adding `omitempty` is redundant; Gota accepts it as a no-op but logs a startup warning reminding you that it can be safely removed.
 
 ---
 
