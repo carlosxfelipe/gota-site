@@ -450,9 +450,9 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
               </div>
               <h3>Zero External Dependencies</h3>
               <p>
-                Router, JSON binder, JWT token verification, and OpenAPI
-                generator are implemented exclusively on standard library
-                primitives.
+                Router, JSON binder, JWT authentication (HS256, RS256, ES256),
+                and OpenAPI generator are implemented exclusively on standard
+                library primitives.
               </p>
             </div>
 
@@ -502,11 +502,11 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                 </svg>
               </div>
-              <h3>Built-in HS256 JWT</h3>
+              <h3>Multi-Algorithm JWT</h3>
               <p>
-                Token signing, verification, and claims middleware:
-                <code>gota.SignJWT</code>, <code>gota.VerifyJWT</code>, and
-                <code>gota.JWTClaims[T]</code>.
+                Zero-dependency signing, verification, and middleware for
+                <code>HS256</code>, <code>RS256</code>, and <code>ES256</code>
+                with built-in PEM parsers and algorithm safety.
               </p>
             </div>
 

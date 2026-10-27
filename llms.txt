@@ -372,6 +372,50 @@ gota.Get(protected, "/profile", func(ctx *gota.Context, _ gota.Empty) (UserRespo
 })
 ```
 
+### 6.3 Asymmetric RSA Tokens (RS256)
+
+Gota also natively supports RS256 with zero external dependencies (using Go stdlib `crypto/rsa` and `crypto/x509`):
+
+```go
+// Parse keys from PEM:
+privKey, err := gota.ParseRSAPrivateKeyFromPEM(privPEMBytes)
+pubKey, err := gota.ParseRSAPublicKeyFromPEM(pubPEMBytes)
+
+// Sign with RSA private key (optional keyID for 'kid' header):
+token, err := gota.SignJWTRSA(privKey, claims, "key-2026-1")
+
+// Verify with RSA public key:
+err = gota.VerifyJWTRSA(pubKey, tokenString, &claims)
+
+// RS256 Middleware:
+protected.Use(gota.JWTRSA(pubKey, gota.JWTOptions{
+	RequireExp: true,
+	ClaimsFactory: func() any { return &CustomClaims{} },
+}))
+```
+
+### 6.4 Asymmetric ECDSA Tokens (ES256)
+
+For Apple ecosystem integrations, Passkeys/WebAuthn, and high-performance mobile APIs, Gota supports ES256 (NIST P-256 + SHA-256) with 64-byte compact signatures:
+
+```go
+// Parse keys from PEM:
+privKey, err := gota.ParseECPrivateKeyFromPEM(privPEMBytes)
+pubKey, err := gota.ParseECPublicKeyFromPEM(pubPEMBytes)
+
+// Sign with ECDSA private key:
+token, err := gota.SignJWTES256(privKey, claims, "apple-key-1")
+
+// Verify with ECDSA public key:
+err = gota.VerifyJWTES256(pubKey, tokenString, &claims)
+
+// ES256 Middleware:
+protected.Use(gota.JWTES256(pubKey, gota.JWTOptions{
+	RequireExp: true,
+	ClaimsFactory: func() any { return &CustomClaims{} },
+}))
+```
+
 ---
 
 ## 7. Fluent Route Metadata Chaining
