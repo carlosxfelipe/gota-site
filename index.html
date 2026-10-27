@@ -350,7 +350,7 @@
 <span class="t-kw">type</span> <span class="t-type">CreateUserRequest</span> <span class="t-kw">struct</span> {
     Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" doc:"Full Name" example:"Jane Doe" validate:"required,min=3"`</span>
     Email <span class="t-type">string</span> <span class="t-tag">`json:"email" doc:"Corporate email" example:"jane@corp.com" validate:"required,email"`</span>
-    Role  <span class="t-type">string</span> <span class="t-tag">`query:"role,omitempty" doc:"User role" validate:"oneof=Admin,Customer"`</span>
+    Role  <span class="t-type">string</span> <span class="t-tag">`query:"role" doc:"User role" validate:"oneof=Admin,Customer"`</span>
 }
 
 <span class="t-comm">// Optional: Custom struct business validation</span>
