@@ -254,8 +254,9 @@
               <p class="ai-card-text">
                 Built 100% on the Go standard library (<code>net/http</code>,
                 <code>reflect</code>, <code>encoding/json</code>,
-                <code>crypto</code>). No heavy dependency trees, zero
-                supply-chain CVE vulnerabilities, and instant compilation.
+                <code>log/slog</code>, <code>crypto/*</code>). No heavy
+                dependency trees, zero supply-chain CVE vulnerabilities, and
+                instant compilation.
               </p>
               <div class="ai-card-actions">
                 <a href="#features" class="btn btn-secondary btn-sm"
@@ -348,12 +349,12 @@
             <div class="code-content" id="tab-pane-req">
               <pre><code><span class="t-comm">// Automated binding across route params, query, headers, form, and JSON body</span>
 <span class="t-kw">type</span> <span class="t-type">CreateUserRequest</span> <span class="t-kw">struct</span> {
-    Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" doc:"Full Name" example:"Jane Doe" validate:"required,min=3"`</span>
+    Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" doc:"Full Name" example:"Jane Doe" validate:"required,min=3" msg:"min:Name must have 3+ chars"`</span>
     Email <span class="t-type">string</span> <span class="t-tag">`json:"email" doc:"Corporate email" example:"jane@corp.com" validate:"required,email"`</span>
-    Role  <span class="t-type">string</span> <span class="t-tag">`query:"role" doc:"User role" validate:"oneof=Admin,Customer"`</span>
+    Plan  <span class="t-type">string</span> <span class="t-tag">`query:"plan" doc:"Subscription tier" default:"Free" validate:"oneof=Free,Pro"`</span>
 }
 
-<span class="t-comm">// Optional: Custom struct business validation</span>
+<span class="t-comm">// Optional: Custom business validation (also supports Validate(ctx *gota.Context) error)</span>
 <span class="t-kw">func</span> (r *<span class="t-type">CreateUserRequest</span>) <span class="t-fn">Validate</span>() <span class="t-type">error</span> {
     <span class="t-kw">if</span> strings.HasSuffix(r.Email, <span class="t-str">"@tempmail.com"</span>) {
         <span class="t-kw">return</span> errors.<span class="t-fn">New</span>(<span class="t-str">"disposable emails are not permitted"</span>)
@@ -370,12 +371,13 @@ gota.<span class="t-fn">Post</span>(app, <span class="t-str">"/api/users"</span>
     <span class="t-comm">// 2. Declarative tags and Validate() have already passed</span>
 
     user := <span class="t-type">UserResponse</span>{
-        ID:    <span class="t-str">"usr_100"</span>,
-        Name:  req.Name,
-        Email: req.Email,
+        Location: <span class="t-str">"/api/users/usr_100"</span>,
+        ID:       <span class="t-str">"usr_100"</span>,
+        Name:     req.Name,
+        Email:    req.Email,
     }
 
-    <span class="t-kw">return</span> user, <span class="t-kw">nil</span> <span class="t-comm">// Serialized as JSON with 200 OK (or configured status)</span>
+    <span class="t-kw">return</span> user, <span class="t-kw">nil</span> <span class="t-comm">// Serialized as JSON with 201 Created (+ Location header)</span>
 }).
     <span class="t-fn">Summary</span>(<span class="t-str">"Register new user"</span>).
     <span class="t-fn">Description</span>(<span class="t-str">"Creates account and returns user profile"</span>).
@@ -385,17 +387,18 @@ gota.<span class="t-fn">Post</span>(app, <span class="t-str">"/api/users"</span>
 
             <!-- Tab 3: Response -->
             <div class="code-content" id="tab-pane-res" style="display: none">
-              <pre><code><span class="t-comm">// Strongly typed response contract</span>
+              <pre><code><span class="t-comm">// Strongly typed response contract (with optional declarative response headers)</span>
 <span class="t-kw">type</span> <span class="t-type">UserResponse</span> <span class="t-kw">struct</span> {
-    ID    <span class="t-type">string</span> <span class="t-tag">`json:"id" example:"usr_100"`</span>
-    Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" example:"Jane Doe"`</span>
-    Email <span class="t-type">string</span> <span class="t-tag">`json:"email" example:"jane@corp.com"`</span>
+    Location <span class="t-type">string</span> <span class="t-tag">`header:"Location" json:"-" doc:"URI of created user"`</span>
+    ID       <span class="t-type">string</span> <span class="t-tag">`json:"id" example:"usr_100"`</span>
+    Name     <span class="t-type">string</span> <span class="t-tag">`json:"name" example:"Jane Doe"`</span>
+    Email    <span class="t-type">string</span> <span class="t-tag">`json:"email" example:"jane@corp.com"`</span>
 }
 
 <span class="t-comm">// Special response types supported natively:</span>
-<span class="t-comm">// - gota.Empty{}       -> Renders HTTP 204 No Content</span>
-<span class="t-comm">// - gota.StreamFunc    -> Chunked byte stream (application/octet-stream)</span>
-<span class="t-comm">// - gota.SSEStream     -> Server-Sent Events live stream (text/event-stream)</span></code></pre>
+<span class="t-comm">// - gota.Empty{}       -&gt; Renders HTTP 204 No Content</span>
+<span class="t-comm">// - gota.StreamFunc    -&gt; Chunked byte stream (application/octet-stream)</span>
+<span class="t-comm">// - gota.SSEStream     -&gt; Server-Sent Events live stream (text/event-stream)</span></code></pre>
             </div>
 
             <!-- Tab 4: Scalar / OpenAPI -->
@@ -450,9 +453,9 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
               </div>
               <h3>Zero External Dependencies</h3>
               <p>
-                Router, JSON binder, JWT authentication (HS256, RS256, ES256),
-                and OpenAPI generator are implemented exclusively on standard
-                library primitives.
+                Radix router, multi-source request binder, recursive struct
+                validator, and fail-fast startup tag checks built purely on
+                standard library primitives.
               </p>
             </div>
 
@@ -475,9 +478,9 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
               </div>
               <h3>Scalar UI & OpenAPI 3.1</h3>
               <p>
-                Interactive API reference rendered via Scalar with classic
-                layout and Fastify theme at <code>/docs</code>, with schema
-                exposed at <code>/openapi.json</code>.
+                Interactive API reference rendered via SRI-pinned Scalar with
+                classic layout and Fastify theme at <code>/docs</code>, and full
+                JSON Schema constraints at <code>/openapi.json</code>.
               </p>
             </div>
 
@@ -505,8 +508,9 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
               <h3>Multi-Algorithm JWT</h3>
               <p>
                 Zero-dependency signing, verification, and middleware for
-                <code>HS256</code>, <code>RS256</code>, and <code>ES256</code>
-                with built-in PEM parsers and algorithm safety.
+                <code>HS256</code>, <code>RS256</code>, <code>ES256</code>, and
+                <code>EdDSA</code> with PEM parsers and dynamic
+                <code>KeyFunc</code> rotation.
               </p>
             </div>
 
@@ -525,9 +529,10 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
               </div>
               <h3>Production Middlewares</h3>
               <p>
-                CORS with automatic OPTIONS preflight, UUID v4 RequestID,
-                structured <code>SlogLogger</code>, and panic
-                <code>Recover</code>.
+                CORS with automatic OPTIONS preflight, token bucket
+                <code>RateLimiter</code>, <code>BasicAuth</code>, UUID v4
+                <code>RequestID</code>, structured <code>SlogLogger</code>, and
+                panic <code>Recover</code>.
               </p>
             </div>
 

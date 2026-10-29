@@ -36,12 +36,13 @@ function copyText(str, msg) {
 
 function copyPrompt() {
   const prompt = `You are an expert Go backend engineer. When writing endpoints using the Gota framework (github.com/carlosxfelipe/gota), strictly follow the REPR Design Pattern (Request-Endpoint-Response):
-1. Always define a Request struct with tags: param, query, header, form, json, and validate.
-2. Handlers have the signature: func(ctx *gota.Context, req Req) (Res, error)
-3. Register routes using generic package functions: gota.Get(app, path, handler), gota.Post, gota.Put, etc.
-4. Chain metadata fluently: .Summary("...").Description("...").Tags("...").Status(code)
-5. Return (ResponseStruct{}, error); Gota automatically serializes JSON.
-Refer to https://github.com/carlosxfelipe/gota/blob/main/llms.txt for full details.`;
+1. Always pass a single Config struct: app := gota.New(gota.Config{}) and register middlewares (app.Use / group.Use) BEFORE any routes.
+2. Define a Request struct with tags: param, query, header, form, json, validate, msg, doc, example, format, default (never put ,omitempty on param/query/header/form tags).
+3. Use pointer fields (*string, *int, *bool) for optional fields with min/len constraints or when 0/false must pass required.
+4. Handlers have the signature: func(ctx *gota.Context, req Req) (Res, error)
+5. Register routes using generic package functions: gota.Get(target, path, handler), gota.Post, gota.Put, gota.Patch, gota.Delete, or gota.HandleEndpoint.
+6. Chain metadata fluently: .Summary("...").Description("...").Tags("...").Status(code)
+Refer to https://gota-framework.netlify.app/llms.txt for the full specification.`;
   copyText(prompt, "AI prompt copied to clipboard!");
 }
 
