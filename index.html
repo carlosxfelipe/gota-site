@@ -415,6 +415,7 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
     ScalarLayout: <span class="t-str">"classic"</span>,          <span class="t-comm">// Default: classic layout (Swagger-style)</span>
 })
 
+<span class="t-comm">// Optional: Protect docs with middleware (e.g. app.UseDocs(gota.BasicAuth(...)))</span>
 <span class="t-comm">// Zero YAML or JSON annotations required.</span>
 <span class="t-comm">// OpenAPI 3.1 is derived directly from Go struct types and tags!</span></code></pre>
             </div>
@@ -478,9 +479,10 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
               </div>
               <h3>Scalar UI & OpenAPI 3.1</h3>
               <p>
-                Interactive API reference rendered via SRI-pinned Scalar with
-                classic layout and Fastify theme at <code>/docs</code>, and full
-                JSON Schema constraints at <code>/openapi.json</code>.
+                Interactive API reference at <code>/docs</code> with SRI-pinned
+                Scalar, CSP hardening, route protection via
+                <code>app.UseDocs</code>, and OpenAPI 3.1 schema at
+                <code>/openapi.json</code>.
               </p>
             </div>
 
@@ -529,10 +531,11 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
               </div>
               <h3>Production Middlewares</h3>
               <p>
-                CORS with automatic OPTIONS preflight, token bucket
-                <code>RateLimiter</code>, <code>BasicAuth</code>, UUID v4
-                <code>RequestID</code>, structured <code>SlogLogger</code>, and
-                panic <code>Recover</code>.
+                CORS with automatic preflight, token bucket <code>RateLimiter</code>,
+                <code>SecureHeaders</code> (HSTS &amp; CSP), <code>Timeout</code>,
+                <code>Gzip</code>, <code>BasicAuth</code>, UUID v4
+                <code>RequestID</code>, structured <code>SlogLogger</code>, and panic
+                <code>Recover</code>.
               </p>
             </div>
 
@@ -658,7 +661,11 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
     })
 
     gota.<span class="t-fn">Get</span>(app, <span class="t-str">"/hello"</span>, <span class="t-kw">func</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">HelloRequest</span>) (<span class="t-type">HelloResponse</span>, <span class="t-type">error</span>) {
-        <span class="t-kw">return</span> <span class="t-type">HelloResponse</span>{Message: <span class="t-str">"Hello, "</span> + req.Name + <span class="t-str">"!"</span>}, <span class="t-kw">nil</span>
+        name := req.Name
+        <span class="t-kw">if</span> name == <span class="t-str">""</span> {
+            name = <span class="t-str">"World"</span>
+        }
+        <span class="t-kw">return</span> <span class="t-type">HelloResponse</span>{Message: <span class="t-str">"Hello, "</span> + name + <span class="t-str">"!"</span>}, <span class="t-kw">nil</span>
     }).
         <span class="t-fn">Summary</span>(<span class="t-str">"Say Hello"</span>).
         <span class="t-fn">Tags</span>(<span class="t-str">"Greeting"</span>)

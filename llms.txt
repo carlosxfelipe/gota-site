@@ -40,10 +40,14 @@ func main() {
 		OpenAPIURL:         "/openapi.json",   // Default: "/openapi.json"
 		ScalarTheme:        gota.ThemeFastify, // Default: gota.ThemeFastify
 		ScalarLayout:       "classic",         // Default: "classic" ("classic" or "modern")
-		DisableDocs:        false,             // Set true to disable /docs and /openapi.json routes
+		DisableDocs:        false,             // Set true to disable /docs and /openapi.json routes (recommended for public production APIs)
+		DisallowUnknownFields: false,          // true: JSON bodies with keys not declared in the request struct fail with 400
+		DocsCSPEnforce:     false,             // Docs CSP is report-only by default; true enforces it (see "Docs Hardening")
 		MaxBodyBytes:       10 << 20,          // Default: 10 MiB (negative value disables limit)
 		MaxMultipartMemory: 32 << 20,          // Default: 32 MiB RAM for multipart parsing (negative disables limit)
+		MaxHeaderBytes:     1 << 20,           // Default: 1 MiB (<= 0 uses the default); over the limit -> 431
 		TrustProxyHeaders:  false,             // true ONLY behind a trusted reverse proxy (X-Forwarded-For / X-Real-IP)
+		TrustedProxyCount:  1,                 // Default: 1. Proxies in front of the app; ClientIP reads the Nth X-Forwarded-For entry FROM THE RIGHT
 		ReadTimeout:        30 * time.Second,  // Default: 30s (negative disables; ReadHeaderTimeout is fixed at 10s)
 		WriteTimeout:       30 * time.Second,  // Default: 30s (negative disables; automatically lifted for streams)
 		IdleTimeout:        120 * time.Second, // Default: 120s (negative disables)
@@ -67,6 +71,8 @@ func main() {
 
 ### Server Lifecycle Methods on `*gota.App`
 
+- `app.Use(mw gota.MiddlewareFunc)`: Registers global middleware running on all routes.
+- `app.UseDocs(mw ...gota.MiddlewareFunc)`: Registers middleware running ONLY on `/docs` and `/openapi.json` (e.g. BasicAuth).
 - `app.Listen(addr string) error`: Starts the HTTP server (`":3000"`, `"3000"`, or `"127.0.0.1:3000"`).
 - `app.ListenGraceful(addr string, stopSignals ...os.Signal) error`: Starts the server and gracefully drains connections (10s timeout) on `os.Interrupt` / `syscall.SIGTERM` (or custom signals).
 - `app.Shutdown(ctx context.Context) error`: Gracefully shuts down a running server started via `Listen`.
@@ -76,6 +82,14 @@ func main() {
 ### Available `ScalarTheme` Constants
 
 `gota.ThemeFastify` (default), `gota.ThemeDefault`, `gota.ThemeAlternate`, `gota.ThemeMoon`, `gota.ThemePurple`, `gota.ThemeSolarized`, `gota.ThemeBluePlanet`, `gota.ThemeDeepSpace`, `gota.ThemeSaturn`, `gota.ThemeKepler`, `gota.ThemeElysiaJS`, `gota.ThemeMars`, `gota.ThemeLaserwave`, `gota.ThemeNone`.
+
+### Docs Hardening (`/docs`, `/openapi.json`)
+
+- The docs page always sends `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer` (`/openapi.json` sends `nosniff`).
+- It also sends a Scalar-compatible CSP (`gota.DocsContentSecurityPolicy(scriptURL)`: script only from the Scalar origin or `'self'`, no framing, no `<base>`, no plugins) as **`Content-Security-Policy-Report-Only`** by default, so it can never break the page. After checking the browser console for violations, set `Config{DocsCSPEnforce: true}` to enforce it. Override with `Config{DocsCSP: "..."}` or omit with `DocsCSP: "-"`.
+- The docs CSP is set inside the docs handler, so it takes precedence over a global `SecureHeaders` CSP (e.g. the strict `ApiContentSecurityPolicy`).
+- **Protecting Docs**: Restrict access to `/docs` and `/openapi.json` using **`app.UseDocs(...)`** or **`Config{DocsMiddlewares: [...]}`** (e.g. `app.UseDocs(gota.BasicAuth("admin", pass))` or IP whitelisting). Normal API routes remain unaffected.
+- **Disabling Docs**: Set `DisableDocs: true` in production for APIs exposed to untrusted networks where documentation should not be served at all (`Listen` logs a status reminder).
 
 ### Scalar Script Pinning & Subresource Integrity (SRI)
 
@@ -104,14 +118,12 @@ Gota binds fields from five HTTP sources and enriches validation/OpenAPI using s
 | `header:"Name"`     | HTTP request header (`Req`) or outgoing response header (`Res`, pair with `json:"-"`). **No options.** | ``Token string `header:"X-Api-Key"` ``           |
 | `form:"name"`       | Multipart or URL-encoded form field / file upload. **No options.**       | ``File *multipart.FileHeader `form:"file"` ``    |
 | `json:"name"`       | JSON request/response body field (standard `encoding/json` options ok).  | ``Title string `json:"title,omitempty"` ``       |
-| `validate:"rules"`  | Declarative validation rules (comma-separated); also exported to OpenAPI 3.1 JSON Schema (`minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `enum`, `format`). | ``Email string `json:"email" validate:"required,email"` `` |
+| `validate:"rules"`  | Declarative validation rules (comma-separated; use `nowarn` to silence field warnings); also exported to OpenAPI 3.1 JSON Schema. | ``Email string `json:"email" validate:"required,email"` `` |
 | `msg:"messages"`    | Custom validation error message(s) (`fallback` or `rule:text\|rule:text`). | ``Name string `json:"name" validate:"required,min=3" msg:"required:Name required\|min:Too short"` `` |
-| `message:"text"`    | Alias for `msg`.                                                         | ``Age int `json:"age" validate:"min=18" message:"Must be 18+"` `` |
 | `doc:"description"` | OpenAPI description (works on `param`, `query`, `header`, `form`, `json`). | ``Q string `query:"q" doc:"Search term"` ``     |
 | `example:"val"`     | OpenAPI example (works on `param`, `query`, `header`, `form`, `json`).   | ``Email string `json:"email" example:"a@b.com"` `` |
 | `format:"fmt"`      | OpenAPI format hint (works on `param`, `query`, `header`, `form`, `json`). | ``Born string `json:"born" format:"date"` ``     |
 | `default:"val"`     | OpenAPI default value (works on `param`, `query`, `header`, `form`, `json`).| ``Role string `json:"role" default:"member"` ``  |
-| `gota:"nowarn"`     | Silences startup validation warnings on a specific field.                | ``Active bool `json:"active" validate:"required" gota:"nowarn"` `` |
 
 > **CRITICAL — Never put `,omitempty` or options in `param`, `query`, `header`, or `form` tags**: Unlike `encoding/json`, `param`, `query`, `header`, and `form` tags only accept the field name (e.g. ``form:"notes"``). Writing ``form:"notes,omitempty"`` or ``query:"page,required"`` triggers a fail-fast startup **panic** in `validation.CheckTags` (only `json:"notes,omitempty"` supports `,omitempty`, and validation rules belong in `validate:"..."`).
 
@@ -135,6 +147,8 @@ Gota binds fields from five HTTP sources and enriches validation/OpenAPI using s
 1. Body is parsed first according to `Content-Type` (`multipart/form-data`, `application/x-www-form-urlencoded`, or JSON).
 2. **Cross-Source Spoofing Protection**: Any field tagged with `param`, `query`, `header`, or `form` (without an explicit `json:"name"` tag) is zeroed after JSON unmarshaling and populated **exclusively** from its declared source, so a JSON body like `{"UserID": 1}` can never spoof a `header:"X-User-Id"` or `param:"id"` field.
 3. **Binding Errors**: Malformed JSON or type conversion failures (e.g. `?page=abc` for an `int`) automatically return `HTTP 400 Bad Request` (`gota.ErrorResponse`). Payloads exceeding `Config.MaxBodyBytes` return `HTTP 413 Request Entity Too Large` (`gota.ErrorResponse`).
+
+> **Strict JSON (`Config.DisallowUnknownFields: true`)**: bodies containing keys that are not fields of the request struct fail with `400` (`json: unknown field "x"`), catching typos and mass-assignment probes. Trailing data after the JSON value is rejected too. Applies to REPR binding and `ctx.BindJson`; use `ctx.DecodeJSON(data, &v)` in custom code to honor the setting. Default is off (unknown keys are ignored).
 
 #### Embedded Structs (Reusable DTO Composition / Mixins)
 
@@ -196,10 +210,10 @@ Nested structs (`Address AddressDTO`, `*AddressDTO`) and slices of structs (`Ite
 #### Fail-Fast Startup Tag Checks & Warnings
 
 At route registration, `WrapEndpoint` runs `validation.CheckTags`:
-- **Intentional Panics**: Unsupported tags like `path:"id"`, unknown validation rules (e.g. `requried`, `gte=5`, `lte=10`, `length=5`, `dive`, `isdefault`), bad rule parameters (`min=abc`), or `msg` referencing undeclared rules **panic immediately at startup** with corrective suggestions.
-- **Startup Warnings**: Non-fatal warnings are logged once per type for `validate:"omitempty"` (no-op in Gota) and `validate:"required"` on non-pointer numeric/bool primitives. Silence per-field with `validate:"...,nowarn"` or `gota:"nowarn"`, or globally with `Config{SilenceTagWarnings: true}` or `gota.SilenceTagWarnings(true)`.
+- **Intentional Panics**: Unsupported tags like `path:"id"`, `message:"text"` (use `msg`), `gota:"nowarn"` (use `validate:"...,nowarn"`), unknown validation rules (e.g. `requried`, `gte=5`, `lte=10`, `length=5`, `dive`, `isdefault`), bad rule parameters (`min=abc`), or `msg` referencing undeclared rules **panic immediately at startup** with corrective suggestions.
+- **Startup Warnings**: Non-fatal warnings are logged once per type for `validate:"omitempty"` (no-op in Gota) and `validate:"required"` on non-pointer numeric/bool primitives. Silence per-field with `validate:"...,nowarn"`, or globally with `Config{SilenceTagWarnings: true}` or `gota.SilenceTagWarnings(true)`.
 
-#### Custom Error Messages (`msg` / `message` Tags)
+#### Custom Error Messages (`msg` Tag)
 
 1. **Single fallback message for any failed rule on the field**:
    ```go
@@ -313,7 +327,7 @@ gota.Get(app, "/api/orders/:orderId/track", func(ctx *gota.Context, req TrackOrd
 	Tags("Orders")
 ```
 
-*(Note: `SSEvent.Data` writes `string` and `[]byte` directly, and JSON-marshals any other Go value.)*
+*(Note: `SSEvent.Data` writes `string` and `[]byte` as text, and JSON-marshals any other Go value. Output is sanitized against SSE injection: CR/LF are stripped from `Event`, and multi-line `Data` is emitted as one `data:` field per line, so user-controlled content cannot forge fields or events.)*
 
 #### Example 3: Chunked Byte Streaming (`gota.StreamFunc`)
 
@@ -415,12 +429,14 @@ app.Use(gota.RequestID()) // Optional: gota.RequestID(gota.RequestIDOptions{Head
 
 // 2. Logging (choose one)
 app.Use(gota.SlogLogger()) // Optional: gota.SlogLogger(gota.SlogLoggerOptions{Logger: customSlog})
-app.Use(gota.Logger())     // Standard log.Printf logger
+app.Use(gota.Logger())     // Standard log.Printf logger (paths/errors are quoted & escaped: no log injection)
 
 // 3. Panic Recovery (logs stacktrace and returns 500 ErrorResponse JSON)
 app.Use(gota.Recover())
 
-// 4. CORS (default allows "*", common methods/headers, MaxAge 86400s)
+// 4. CORS (default allows "*", common methods/headers, MaxAge 86400s). Always sends `Vary: Origin`; CORS headers
+//    (incl. preflight Allow-Methods/Headers, Expose-Headers) are sent ONLY to allowed origins; the opaque "null"
+//    origin is allowed only if listed explicitly (never via a "*" entry).
 app.Use(gota.CORS(gota.CORSOptions{
 	AllowOrigins:     []string{"https://app.example.com"}, // MUST NOT be "*" when AllowCredentials is true!
 	AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
@@ -431,12 +447,31 @@ app.Use(gota.CORS(gota.CORSOptions{
 }))
 
 // 5. In-Memory Token Bucket Rate Limiter (returns 429 Too Many Requests with Retry-After)
+//    Default key is ctx.ClientIP(); IPv6 clients are grouped by /64 prefix.
 app.Use(gota.RateLimiter(gota.RateLimiterOptions{
 	Max:    100,             // Default: 60 requests
 	Window: 1 * time.Minute, // Default: 1 minute (keyed by ctx.ClientIP() unless KeyFunc is set)
+	MaxKeys: 10000,          // Default: 10000 tracked keys (idle buckets, then LRU, are evicted) to bound memory
 }))
 
-// 6. Constant-Time HTTP Basic Auth (automatically documents BasicAuth in OpenAPI 3.1)
+// 6. Security headers: nosniff, X-Frame-Options: DENY, Referrer-Policy: no-referrer, and HSTS (only sent over HTTPS:
+//    direct TLS, or X-Forwarded-Proto=https when Config.TrustProxyHeaders is true). CSP/Permissions-Policy are opt-in.
+app.Use(gota.SecureHeaders(gota.SecureHeadersOptions{
+	ContentSecurityPolicy: gota.ApiContentSecurityPolicy, // JSON-only APIs. DON'T use with the built-in /docs page (Scalar needs scripts/styles)
+	HSTSIncludeSubdomains: true,                          // HSTSMaxAge default 31536000; negative disables
+}))
+
+// 7. Per-request timeout (COOPERATIVE): sets a deadline on ctx.Request.Context(); the handler and its DB/HTTP calls must
+//    honor it (pass ctx.Request.Context()). If it expires and an error was returned before writing, the client gets 503.
+//    Panics if d <= 0. NEVER apply to SSE/streaming routes (it would end the stream).
+app.Use(gota.Timeout(5*time.Second, gota.TimeoutOptions{Message: "request timeout"}))
+
+// 8. Gzip compression for clients sending Accept-Encoding: gzip. Only text/*, JSON, XML, JS, SVG are compressed; bodies
+//    < MinLength (default 1024), HEAD/Range requests, text/event-stream and already-encoded responses are skipped. Always
+//    sets Vary: Accept-Encoding. BREACH caveat: avoid on HTTPS endpoints mixing secrets with reflected user input.
+app.Use(gota.Gzip(gota.GzipOptions{Level: 5, MinLength: 1024})) // Level: -2..9, invalid panics
+
+// 9. Constant-Time HTTP Basic Auth (automatically documents BasicAuth in OpenAPI 3.1)
 adminGroup.Use(gota.BasicAuth("admin", os.Getenv("ADMIN_PASS"), gota.BasicAuthOptions{
 	Realm: "Admin Area", // Optional: Validator func(user, pass string) bool
 }))
@@ -559,6 +594,8 @@ var claims CustomClaims
 err = gota.VerifyJWT(jwtSecret, tokenString, &claims)
 ```
 
+> **Minimum secret length**: `gota.JWT(secret, ...)` (HS256) **panics at startup** if `secret` is shorter than `gota.MinHS256SecretLength` (32 bytes, RFC 7518 §3.2). Generate one with `openssl rand -base64 48` and load it from the environment. `JWTOptions{AllowShortSecret: true}` bypasses the check (tests/legacy only). Not applied to RS256/ES256/EdDSA or `KeyFunc` middlewares, nor to the standalone `SignJWT`/`VerifyJWT` helpers (which only reject empty secrets).
+
 ### 7.2 Protecting Routes & Extracting Claims
 
 ```go
@@ -579,6 +616,7 @@ gota.Get(protected, "/me", func(ctx *gota.Context, _ gota.Empty) (UserResponse, 
 })
 ```
 
+- **Issuer, Audiences & Leeway (all optional, off by default)**: `JWTOptions{Issuer: "https://auth.example.com", Audiences: []string{"my-api", "v2"}, Leeway: 30 * time.Second}`. When `Issuer` is set, `iss` must equal it exactly; when `Audiences` is set, `aud` (string or array) must contain at least one of the specified audiences. Missing or wrong-typed claims → `401`. `Leeway` tolerates clock skew on `exp`/`nbf` (negative → 0, capped at 5 minutes). Always set `Issuer` and `Audiences` when accepting tokens from an external IdP or sharing keys across services. These apply to all `gota.JWT*` middlewares (HS256, RS256, ES256, EdDSA, KeyFunc); standalone `Verify*` helpers do not check them.
 - **Without `ClaimsFactory`**: Claims decode into `map[string]any` and can be retrieved via `claims, ok := gota.JWTClaims[map[string]any](ctx)`.
 - **Custom `ContextKey`**: If `ContextKey: "admin"` was set in `JWTOptions`, pass it as the second argument: `gota.JWTClaims[*CustomClaims](ctx, "admin")`.
 - **Raw Token & JOSE Header**: Authenticated requests also store the raw Bearer token at `ctx.Get("jwt_token")`. Use `hdr, err := gota.ParseJWTHeader(tokenString)` to inspect `Alg`, `Typ`, and `Kid` prior to verification.
@@ -699,10 +737,10 @@ app.Get("/healthz", func(ctx *gota.Context) error {
   - Query: `ctx.Query(name) string`, `ctx.QueryDefault(name, def) string`, `ctx.QueryInt(name, def) int`, `ctx.QueryBool(name, def) bool`
   - Headers & Cookies: `ctx.Header(name) string`, `ctx.Cookie(name) (*http.Cookie, error)`
   - Client & Correlation: `ctx.ClientIP() string`, `ctx.RequestID() string`
-  - Body & Forms: `ctx.Body() ([]byte, error)` *(cached, safe to call multiple times)*, `ctx.BindJson(targetPtr) error`, `ctx.Form(name) string`, `ctx.FormFile(name) (*multipart.FileHeader, error)`, `ctx.MultipartForm() (*multipart.Form, error)`, `ctx.MaxMultipartMemory() int64`, `ctx.SetMaxMultipartMemory(limit int64)`
+  - Body & Forms: `ctx.Body() ([]byte, error)` *(cached, safe to call multiple times; reads at most `Config.MaxBodyBytes` — `DefaultMaxBodyBytes` for a `Context` created outside `App.ServeHTTP` — and returns `*http.MaxBytesError` beyond it)*, `ctx.BindJson(targetPtr) error`, `ctx.Form(name) string`, `ctx.FormFile(name) (*multipart.FileHeader, error)`, `ctx.MultipartForm() (*multipart.Form, error)`, `ctx.MaxMultipartMemory() int64`, `ctx.SetMaxMultipartMemory(limit int64)`
 - **Response Helpers**:
   - Status & Headers: `ctx.Status(code int) *gota.Context`, `ctx.StatusCode() int`, `ctx.StatusExplicit() bool`, `ctx.SetHeader(key, val string) *gota.Context`, `ctx.SetCookie(cookie *http.Cookie) *gota.Context`, `ctx.Written() bool`
-  - Writers: `ctx.Json(data any) error`, `ctx.Send(text string) error`, `ctx.SendBytes(data []byte) error`, `ctx.NoContent() error`, `ctx.Redirect(url string, code ...int) error`
+  - Writers: `ctx.Json(data any) error`, `ctx.Send(text string) error`, `ctx.SendBytes(data []byte) error`, `ctx.NoContent() error`, `ctx.Redirect(url string, code ...int) error`, `ctx.RedirectLocal(path string, code ...int) error` *(same-site paths only, else 400 — ALWAYS use it when the target comes from user input, e.g. `?next=`, to prevent open redirects)*
   - Streaming: `ctx.Stream(step func(w io.Writer) bool) error`, `ctx.SSEvent(event string, data any) error`
 
 ---
