@@ -412,15 +412,17 @@ gota.<span class="t-fn">Post</span>(app, <span class="t-str">"/api/users"</span>
             <!-- Tab 4: Scalar / OpenAPI -->
             <div class="code-content" id="tab-pane-doc" style="display: none">
               <pre><code><span class="t-comm">// Interactive Scalar documentation served out of the box at /docs</span>
-<span class="t-comm">// Schema exposed at /openapi.json</span>
+<span class="t-comm">// Schema exposed at /openapi.json and TypeScript SDK at /sdk.ts</span>
 
 app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span>{
-    Title:        <span class="t-str">"My API"</span>,
-    Version:      <span class="t-str">"1.0.0"</span>,
-    DocsURL:      <span class="t-str">"/docs"</span>,            <span class="t-comm">// Default: /docs</span>
-    OpenAPIURL:   <span class="t-str">"/openapi.json"</span>,    <span class="t-comm">// Default: /openapi.json</span>
-    ScalarTheme:  gota.ThemeFastify,  <span class="t-comm">// Default: Fastify Theme</span>
-    ScalarLayout: <span class="t-str">"classic"</span>,          <span class="t-comm">// Default: classic layout (Swagger-style)</span>
+    Title:            <span class="t-str">"My API"</span>,
+    Version:          <span class="t-str">"1.0.0"</span>,
+    DocsURL:          <span class="t-str">"/docs"</span>,            <span class="t-comm">// Default: /docs</span>
+    OpenAPIURL:       <span class="t-str">"/openapi.json"</span>,    <span class="t-comm">// Default: /openapi.json</span>
+    TypeScriptURL:    <span class="t-str">"/types.d.ts"</span>,      <span class="t-comm">// Serves TypeScript definitions</span>
+    TypeScriptSDKURL: <span class="t-str">"/sdk.ts"</span>,          <span class="t-comm">// Serves standalone client SDK</span>
+    ScalarTheme:      gota.ThemeFastify,  <span class="t-comm">// Default: Fastify Theme</span>
+    ScalarLayout:     <span class="t-str">"classic"</span>,          <span class="t-comm">// Default: classic layout (Swagger-style)</span>
 })
 
 <span class="t-comm">// Optional: Protect docs with middleware (e.g. app.UseDocs(gota.BasicAuth(...)))</span>
