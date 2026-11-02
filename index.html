@@ -126,8 +126,9 @@
           <p class="hero-subtitle">
             Built entirely on the Go standard library. Type-safe
             <strong>Request-Endpoint-Response</strong> architecture, automated
-            binding & validation, and native interactive
-            <strong>Scalar</strong> documentation.
+            binding & validation, native interactive
+            <strong>Scalar</strong> documentation, and auto-generated
+            <strong>TypeScript Client SDK</strong>.
           </p>
 
           <!-- Install Bar -->
@@ -314,6 +315,13 @@
                 >
                   4. Scalar OpenAPI 3.1
                 </button>
+                <button
+                  class="code-tab-btn"
+                  id="tab-btn-ts"
+                  onclick="switchTab('ts')"
+                >
+                  5. TypeScript SDK
+                </button>
               </div>
               <div class="code-window-actions">
                 <button
@@ -419,6 +427,29 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
 <span class="t-comm">// Zero YAML or JSON annotations required.</span>
 <span class="t-comm">// OpenAPI 3.1 is derived directly from Go struct types and tags!</span></code></pre>
             </div>
+
+            <!-- Tab 5: TypeScript Client SDK -->
+            <div class="code-content" id="tab-pane-ts" style="display: none">
+              <pre><code><span class="t-comm">// Zero-dependency TypeScript definitions at /types.d.ts</span>
+<span class="t-comm">// Standalone client SDK served at /sdk.ts with native fetch</span>
+
+<span class="t-kw">import</span> { createGotaClient } <span class="t-kw">from</span> <span class="t-str">"./api"</span>; <span class="t-comm">// curl -o src/api.ts http://localhost:3000/sdk.ts</span>
+
+<span class="t-kw">const</span> api = <span class="t-fn">createGotaClient</span>(<span class="t-str">"http://localhost:3000"</span>);
+
+<span class="t-comm">// 1. Editor autocompletes valid routes & enforces required route parameters</span>
+<span class="t-kw">const</span> user = <span class="t-kw">await</span> api.<span class="t-fn">fetch</span>(<span class="t-str">"GET /users/:id"</span>, {
+    params: { id: <span class="t-str">"usr_100"</span> },
+});
+
+<span class="t-comm">// 2. Fully typed: response inferred directly from Go struct UserResponse</span>
+console.<span class="t-fn">log</span>(user.name); <span class="t-comm">// string</span>
+
+<span class="t-comm">// 3. Autocompleted and type-safe request bodies</span>
+<span class="t-kw">const</span> created = <span class="t-kw">await</span> api.<span class="t-fn">fetch</span>(<span class="t-str">"POST /users"</span>, {
+    body: { name: <span class="t-str">"Jane Doe"</span>, email: <span class="t-str">"jane@corp.com"</span> },
+});</code></pre>
+            </div>
           </div>
         </div>
       </section>
@@ -483,6 +514,29 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
                 Scalar, CSP hardening, route protection via
                 <code>app.UseDocs</code>, and OpenAPI 3.1 schema at
                 <code>/openapi.json</code>.
+              </p>
+            </div>
+
+            <div class="feature-item">
+              <div class="feature-icon-box">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+              </div>
+              <h3>TypeScript Definitions & SDK</h3>
+              <p>
+                Zero-dependency end-to-end type safety from Go to frontend.
+                Serves type declarations at <code>/types.d.ts</code> and a
+                standalone client SDK at <code>/sdk.ts</code> using native
+                <code>fetch</code> without npm dependencies.
               </p>
             </div>
 

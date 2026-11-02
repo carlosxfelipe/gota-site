@@ -49,7 +49,7 @@ Refer to https://gota-framework.netlify.app/llms.txt for the full specification.
 let activeTab = "req";
 function switchTab(tab) {
   activeTab = tab;
-  const tabs = ["req", "ep", "res", "doc"];
+  const tabs = ["req", "ep", "res", "doc", "ts"];
   tabs.forEach(function (t) {
     const btn = document.getElementById("tab-btn-" + t);
     const pane = document.getElementById("tab-pane-" + t);
