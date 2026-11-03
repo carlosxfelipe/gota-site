@@ -1,6 +1,6 @@
 # Gota Framework 💧
 
-> Minimalist, zero-dependency Go web micro-framework built around the REPR Design Pattern (Request-Endpoint-Response) with native interactive API documentation powered by Scalar and OpenAPI 3.1.
+> Minimalist, zero-dependency Go web framework built around the REPR Design Pattern (Request-Endpoint-Response) with native interactive API documentation powered by Scalar and OpenAPI 3.1.
 
 This document is the definitive specification, API reference, and rulebook for the **Gota** web framework in Go. Because Gota has deliberate design choices and fail-fast runtime checks, strictly follow the signatures, struct tags, and constraints documented here rather than guessing or borrowing idioms from Gin, Echo, Fiber, or Chi.
 
@@ -43,6 +43,9 @@ func main() {
 		ScalarTheme:        gota.ThemeFastify, // Default: gota.ThemeFastify
 		ScalarLayout:       "classic",         // Default: "classic" ("classic" or "modern")
 		DisableDocs:        false,             // Set true to disable /docs and /openapi.json routes (recommended for public production APIs)
+		DocsMiddlewares:    nil,               // Middlewares running specifically on /docs, /openapi.json, /types.d.ts, /sdk.ts
+		DocsRateLimit:      nil,               // Optional *gota.RateLimiterOptions specifically for docs & TS routes (anti brute-force)
+		DocsAllowOrigins:   nil,               // Optional allowed CORS origins for docs & TS routes (isolated from global CORS by default)
 		DisallowUnknownFields: false,          // true: JSON bodies with keys not declared in the request struct fail with 400
 		DocsCSPEnforce:     false,             // Docs CSP is report-only by default; true enforces it (see "Docs Hardening")
 		MaxBodyBytes:       10 << 20,          // Default: 10 MiB (negative value disables limit)
@@ -74,23 +77,27 @@ func main() {
 ### Server Lifecycle Methods on `*gota.App`
 
 - `app.Use(mw gota.MiddlewareFunc)`: Registers global middleware running on all routes.
-- `app.UseDocs(mw ...gota.MiddlewareFunc)`: Registers middleware running ONLY on `/docs` and `/openapi.json` (e.g. BasicAuth).
+- `app.UseDocs(mw ...gota.MiddlewareFunc)`: Registers middleware running ONLY on `/docs`, `/openapi.json`, and TypeScript routes `/types.d.ts`, `/sdk.ts` (e.g. BasicAuth, RateLimiter).
 - `app.Listen(addr string) error`: Starts the HTTP server (`":3000"`, `"3000"`, or `"127.0.0.1:3000"`).
 - `app.ListenGraceful(addr string, stopSignals ...os.Signal) error`: Starts the server and gracefully drains connections (10s timeout) on `os.Interrupt` / `syscall.SIGTERM` (or custom signals).
 - `app.Shutdown(ctx context.Context) error`: Gracefully shuts down a running server started via `Listen`.
 - `app.ServeHTTP(w http.ResponseWriter, r *http.Request)`: Dispatches a request directly (ideal for `httptest`).
+- `app.GenerateTypeScript() string`, `app.GenerateTypeScriptSDK() string`: Generates TypeScript declarations or client SDK code as string.
+- `app.ExportTypeScript(filepath string) error`, `app.ExportTypeScriptSDK(filepath string) error`: Exports definitions or SDK directly to disk (creates directories automatically, ideal for CI/CD).
 - `app.Server() *http.Server`, `app.Config() gota.Config`, `app.Router() *core.Router`.
 
 ### Available `ScalarTheme` Constants
 
 `gota.ThemeFastify` (default), `gota.ThemeDefault`, `gota.ThemeAlternate`, `gota.ThemeMoon`, `gota.ThemePurple`, `gota.ThemeSolarized`, `gota.ThemeBluePlanet`, `gota.ThemeDeepSpace`, `gota.ThemeSaturn`, `gota.ThemeKepler`, `gota.ThemeElysiaJS`, `gota.ThemeMars`, `gota.ThemeLaserwave`, `gota.ThemeNone`.
 
-### Docs Hardening (`/docs`, `/openapi.json`)
+### Docs Hardening (`/docs`, `/openapi.json`, `/types.d.ts`, `/sdk.ts`)
 
-- The docs page always sends `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer` (`/openapi.json` sends `nosniff`).
+- **Anti-Caching Headers**: `/docs`, `/openapi.json`, `/types.d.ts` and `/sdk.ts` always send `Cache-Control: no-store, no-cache, must-revalidate, private` and `Pragma: no-cache` to ensure CDNs and proxies never cache authenticated schemas or SDKs for unauthenticated users (can be overridden by explicit middleware).
+- The docs page always sends `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer` (`/openapi.json`, `/types.d.ts`, `/sdk.ts` send `nosniff`).
 - It also sends a Scalar-compatible CSP (`gota.DocsContentSecurityPolicy(scriptURL)`: script only from the Scalar origin or `'self'`, no framing, no `<base>`, no plugins) as **`Content-Security-Policy-Report-Only`** by default, so it can never break the page. After checking the browser console for violations, set `Config{DocsCSPEnforce: true}` to enforce it. Override with `Config{DocsCSP: "..."}` or omit with `DocsCSP: "-"`.
 - The docs CSP is set inside the docs handler, so it takes precedence over a global `SecureHeaders` CSP (e.g. the strict `ApiContentSecurityPolicy`).
-- **Protecting Docs**: Restrict access to `/docs` and `/openapi.json` using **`app.UseDocs(...)`** or **`Config{DocsMiddlewares: [...]}`** (e.g. `app.UseDocs(gota.BasicAuth("admin", pass))` or IP whitelisting). Normal API routes remain unaffected.
+- **CORS Isolation**: Documentation, OpenAPI spec, and TypeScript routes are isolated from global wildcard CORS by default to prevent untrusted third-party websites from reading internal API schemas via cross-origin fetch/XHR. To allow specific trusted origins (e.g. an internal developer portal), configure `Config{DocsAllowOrigins: []string{"https://portal.example.com"}}`. Preflight `OPTIONS` requests for documentation routes are handled cleanly without requiring BasicAuth credentials.
+- **Protecting Docs**: Restrict access to `/docs`, `/openapi.json`, `/types.d.ts`, and `/sdk.ts` using **`app.UseDocs(...)`**, **`Config{DocsMiddlewares: [...]}`**, or **`Config{DocsRateLimit: &gota.RateLimiterOptions{...}}`**. Brute-force protection can be configured via `gota.RateLimiter(...)` or directly via `gota.BasicAuth(user, pass, gota.BasicAuthOptions{RateLimit: &gota.RateLimiterOptions{...}})`. Normal API routes remain unaffected.
 - **Disabling Docs**: Set `DisableDocs: true` in production for APIs exposed to untrusted networks where documentation should not be served at all (`Listen` logs a status reminder).
 
 ### Scalar Script Pinning & Subresource Integrity (SRI)
@@ -214,6 +221,8 @@ Nested structs (`Address AddressDTO`, `*AddressDTO`) and slices of structs (`Ite
 At route registration, `WrapEndpoint` runs `validation.CheckTags`:
 - **Intentional Panics**: Unsupported tags like `path:"id"`, `message:"text"` (use `msg`), `gota:"nowarn"` (use `validate:"...,nowarn"`), unknown validation rules (e.g. `requried`, `gte=5`, `lte=10`, `length=5`, `dive`, `isdefault`), bad rule parameters (`min=abc`), or `msg` referencing undeclared rules **panic immediately at startup** with corrective suggestions.
 - **Startup Warnings**: Non-fatal warnings are logged once per type for `validate:"omitempty"` (no-op in Gota) and `validate:"required"` on non-pointer numeric/bool primitives. Silence per-field with `validate:"...,nowarn"`, or globally with `Config{SilenceTagWarnings: true}` or `gota.SilenceTagWarnings(true)`.
+- **Sensitive Field Leak Warnings**: Non-fatal security warnings are logged if exported struct fields appear to contain sensitive secrets (e.g. `PasswordHash`, `ClientSecret`, `Salt`, `ResetToken`) without a `json:"-"` tag. Silence per-field with `validate:"nowarn"` or globally with `SilenceTagWarnings: true`.
+- **Model Security Auditing**: `gota.AuditModel(model any) []string` inspects any struct (and nested/embedded structs) and returns warning messages if sensitive fields lack `json:"-"`. Ideal for unit tests to prevent accidental database/domain schema leakage in API contracts.
 
 #### Custom Error Messages (`msg` Tag)
 
@@ -474,8 +483,24 @@ app.Use(gota.Timeout(5*time.Second, gota.TimeoutOptions{Message: "request timeou
 app.Use(gota.Gzip(gota.GzipOptions{Level: 5, MinLength: 1024})) // Level: -2..9, invalid panics
 
 // 9. Constant-Time HTTP Basic Auth (automatically documents BasicAuth in OpenAPI 3.1)
+//    Supports optional RateLimit to protect against brute-force and credential-stuffing attacks.
+//    Supports RequireTLS to reject remote non-HTTPS requests with 403 Forbidden.
+//    Warns at startup if configured with weak/default credentials (suppress with AllowWeakCredentials: true).
 adminGroup.Use(gota.BasicAuth("admin", os.Getenv("ADMIN_PASS"), gota.BasicAuthOptions{
-	Realm: "Admin Area", // Optional: Validator func(user, pass string) bool
+	Realm:                "Admin Area", // Optional: Validator func(user, pass string) bool, ContextKey string
+	RateLimit:            &gota.RateLimiterOptions{Max: 5, Window: time.Minute},
+	AllowWeakCredentials: false,        // true silences weak/default password warnings
+	RequireTLS:           true,         // true rejects remote plain-HTTP requests with 403 (allows localhost & HTTPS proxies)
+}))
+
+// 10. IP & CIDR Whitelisting (rejects non-matching requests with 403 Forbidden)
+//     Allows loopback/localhost by default for local development. Supports IPv4, IPv6, and CIDR ranges.
+app.Use(gota.IPWhitelist("10.0.0.0/8", "192.168.1.0/24", "203.0.113.50"))
+
+// 11. Bearer Token Authentication (validates Authorization: Bearer <token> using constant-time comparison)
+//     Automatically documents BearerAuth in OpenAPI 3.1. Supports RateLimit and RequireTLS options.
+adminGroup.Use(gota.BearerToken(os.Getenv("DEV_TOKEN"), gota.BearerTokenOptions{
+	RequireTLS: true,
 }))
 ```
 
@@ -686,11 +711,11 @@ gota.Get(app, "/api/users/:id", getUserHandler).
 	Response(http.StatusNotFound, gota.ErrorResponse{}, "Not found"). // Documents extra OpenAPI status codes
 	Middleware(auditMiddleware).                                     // Appends route-specific middleware(s)
 	Name("users.show")                                               // Registers route name for app.URLFor
-	// Also available on *gota.Route (and .BearerAuth() / .Security(...) on *gota.RouteGroup):
+	// Also available on *gota.Route (and .BearerAuth() / .Security(...) / .Hidden() on *gota.RouteGroup):
 	// .BearerAuth()                                                 // Documents BearerAuth in OpenAPI & Scalar (auto-applied by gota.JWT*)
 	// .Security("BearerAuth")                                       // Documents custom/named security scheme(s)
 	// .Deprecated()                                                 // Marks deprecated in OpenAPI
-	// .Hidden()                                                     // Hides route from OpenAPI & Scalar UI
+	// .Hidden()                                                     // Hides route (or entire RouteGroup & children) from OpenAPI, Scalar, and TypeScript SDK
 	// .Body(model, desc...), .Query(name, model, desc...), .Header(name, model, desc...) // Manual docs for low-level routes
 ```
 

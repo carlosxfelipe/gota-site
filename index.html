@@ -6,7 +6,7 @@
     <title>Gota Framework — Zero-Dependency REPR Web Framework for Go</title>
     <meta
       name="description"
-      content="Minimalist, zero-dependency Go web micro-framework built around the REPR pattern with native Scalar and OpenAPI 3.1 documentation."
+      content="Minimalist, zero-dependency Go web framework built around the REPR pattern with native Scalar and OpenAPI 3.1 documentation."
     />
     <link rel="icon" type="image/svg+xml" href="logo.svg" />
 
@@ -120,7 +120,7 @@
 
           <h1 class="hero-title">
             Zero-Dependency <br />
-            <span class="hero-title-accent">REPR Micro-Framework</span> for Go
+            <span class="hero-title-accent">REPR Web Framework</span> for Go
           </h1>
 
           <p class="hero-subtitle">
@@ -412,7 +412,7 @@ gota.<span class="t-fn">Post</span>(app, <span class="t-str">"/api/users"</span>
             <!-- Tab 4: Scalar / OpenAPI -->
             <div class="code-content" id="tab-pane-doc" style="display: none">
               <pre><code><span class="t-comm">// Interactive Scalar documentation served out of the box at /docs</span>
-<span class="t-comm">// Schema exposed at /openapi.json and TypeScript SDK at /sdk.ts</span>
+<span class="t-comm">// OpenAPI schema at /openapi.json, TypeScript declarations &amp; SDK at /types.d.ts &amp; /sdk.ts</span>
 
 app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span>{
     Title:            <span class="t-str">"My API"</span>,
@@ -425,15 +425,19 @@ app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span
     ScalarLayout:     <span class="t-str">"classic"</span>,          <span class="t-comm">// Default: classic layout (Swagger-style)</span>
 })
 
-<span class="t-comm">// Optional: Protect docs with middleware (e.g. app.UseDocs(gota.BasicAuth(...)))</span>
-<span class="t-comm">// Zero YAML or JSON annotations required.</span>
+<span class="t-comm">// Protect docs &amp; SDK routes with BasicAuth, brute-force RateLimiter, and TLS enforcement:</span>
+app.<span class="t-fn">UseDocs</span>(gota.<span class="t-fn">BasicAuth</span>(<span class="t-str">"admin"</span>, os.<span class="t-fn">Getenv</span>(<span class="t-str">"DOCS_PASS"</span>), gota.<span class="t-type">BasicAuthOptions</span>{
+    RateLimit: &amp;gota.<span class="t-type">RateLimiterOptions</span>{Max: <span class="t-num">10</span>, Window: time.Minute},
+}))
+
+<span class="t-comm">// Or export SDK offline for CI/CD: app.ExportTypeScriptSDK("frontend/src/api.ts")</span>
 <span class="t-comm">// OpenAPI 3.1 is derived directly from Go struct types and tags!</span></code></pre>
             </div>
 
             <!-- Tab 5: TypeScript Client SDK -->
             <div class="code-content" id="tab-pane-ts" style="display: none">
               <pre><code><span class="t-comm">// Zero-dependency TypeScript definitions at /types.d.ts</span>
-<span class="t-comm">// Standalone client SDK served at /sdk.ts with native fetch</span>
+<span class="t-comm">// Standalone client SDK served at /sdk.ts or exported via app.ExportTypeScriptSDK()</span>
 
 <span class="t-kw">import</span> { createGotaClient } <span class="t-kw">from</span> <span class="t-str">"./api"</span>; <span class="t-comm">// curl -o src/api.ts http://localhost:3000/sdk.ts</span>
 
@@ -465,7 +469,7 @@ console.<span class="t-fn">log</span>(user.name); <span class="t-comm">// string
             <span class="section-tag">Capabilities</span>
             <h2 class="section-heading">Built for Production</h2>
             <p class="section-desc">
-              Essential micro-framework primitives without third-party baggage.
+              Essential web framework primitives without third-party baggage.
             </p>
           </div>
 
@@ -514,7 +518,7 @@ console.<span class="t-fn">log</span>(user.name); <span class="t-comm">// string
               <p>
                 Interactive API reference at <code>/docs</code> with SRI-pinned
                 Scalar, CSP hardening, route protection via
-                <code>app.UseDocs</code>, and OpenAPI 3.1 schema at
+                <code>app.UseDocs</code> (with anti-brute-force rate limiting and anti-caching), and OpenAPI 3.1 schema at
                 <code>/openapi.json</code>.
               </p>
             </div>
@@ -536,9 +540,8 @@ console.<span class="t-fn">log</span>(user.name); <span class="t-comm">// string
               <h3>TypeScript Definitions & SDK</h3>
               <p>
                 Zero-dependency end-to-end type safety from Go to frontend.
-                Serves type declarations at <code>/types.d.ts</code> and a
-                standalone client SDK at <code>/sdk.ts</code> using native
-                <code>fetch</code> without npm dependencies.
+                Serves declarations at <code>/types.d.ts</code> and standalone client SDK at <code>/sdk.ts</code> using native
+                <code>fetch</code>, or exports offline directly via <code>app.ExportTypeScriptSDK</code>.
               </p>
             </div>
 
@@ -588,8 +591,8 @@ console.<span class="t-fn">log</span>(user.name); <span class="t-comm">// string
               <h3>Production Middlewares</h3>
               <p>
                 CORS with automatic preflight, token bucket <code>RateLimiter</code>,
-                <code>SecureHeaders</code> (HSTS &amp; CSP), <code>Timeout</code>,
-                <code>Gzip</code>, <code>BasicAuth</code>, UUID v4
+                <code>SecureHeaders</code> (HSTS &amp; CSP), <code>IPWhitelist</code> (with CIDR subnets), <code>BasicAuth</code>, <code>BearerToken</code>, <code>Timeout</code>,
+                <code>Gzip</code>, UUID v4
                 <code>RequestID</code>, structured <code>SlogLogger</code>, and panic
                 <code>Recover</code>.
               </p>
@@ -717,16 +720,14 @@ console.<span class="t-fn">log</span>(user.name); <span class="t-comm">// string
     })
 
     gota.<span class="t-fn">Get</span>(app, <span class="t-str">"/hello"</span>, <span class="t-kw">func</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">HelloRequest</span>) (<span class="t-type">HelloResponse</span>, <span class="t-type">error</span>) {
-        name := req.Name
-        <span class="t-kw">if</span> name == <span class="t-str">""</span> {
-            name = <span class="t-str">"World"</span>
-        }
-        <span class="t-kw">return</span> <span class="t-type">HelloResponse</span>{Message: <span class="t-str">"Hello, "</span> + name + <span class="t-str">"!"</span>}, <span class="t-kw">nil</span>
+        <span class="t-kw">return</span> <span class="t-type">HelloResponse</span>{Message: <span class="t-str">"Hello, "</span> + req.Name + <span class="t-str">"!"</span>}, <span class="t-kw">nil</span>
     }).
         <span class="t-fn">Summary</span>(<span class="t-str">"Say Hello"</span>).
         <span class="t-fn">Tags</span>(<span class="t-str">"Greeting"</span>)
 
-    log.<span class="t-fn">Fatal</span>(app.<span class="t-fn">ListenGraceful</span>(<span class="t-str">":3000"</span>))
+    <span class="t-kw">if</span> err := app.<span class="t-fn">ListenGraceful</span>(<span class="t-str">":3000"</span>); err != <span class="t-kw">nil</span> {
+        log.<span class="t-fn">Printf</span>(<span class="t-str">"Server error: %v"</span>, err)
+    }
 }</code></pre>
             </div>
           </div>
