@@ -355,105 +355,138 @@
 
             <!-- Tab 1: Request -->
             <div class="code-content" id="tab-pane-req">
-              <pre><code><span class="t-comm">// Automated binding across route params, query, headers, form, and JSON body</span>
+              <pre><code><span class="t-comm">// 1. JSON Body DTO with automated validation rules and OpenAPI documentation</span>
 <span class="t-kw">type</span> <span class="t-type">CreateUserRequest</span> <span class="t-kw">struct</span> {
-    Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" doc:"Full Name" example:"Jane Doe" validate:"required,min=3" msg:"min:Name must have 3+ chars"`</span>
-    Email <span class="t-type">string</span> <span class="t-tag">`json:"email" doc:"Corporate email" example:"jane@corp.com" validate:"required,email"`</span>
-    Plan  <span class="t-type">string</span> <span class="t-tag">`query:"plan" doc:"Subscription tier" default:"Free" validate:"oneof=Free,Pro"`</span>
+    Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" doc:"Full name of user" example:"Jane Doe" validate:"required,min=3"`</span>
+    Email <span class="t-type">string</span> <span class="t-tag">`json:"email" doc:"Valid corporate or personal email" example:"jane.doe@example.com" validate:"required,email"`</span>
+    Role  <span class="t-type">string</span> <span class="t-tag">`json:"role" doc:"User access role" example:"admin" default:"member"`</span>
 }
 
-<span class="t-comm">// Optional: Custom business validation (also supports Validate(ctx *gota.Context) error)</span>
-<span class="t-kw">func</span> (r *<span class="t-type">CreateUserRequest</span>) <span class="t-fn">Validate</span>() <span class="t-type">error</span> {
-    <span class="t-kw">if</span> strings.HasSuffix(r.Email, <span class="t-str">"@tempmail.com"</span>) {
-        <span class="t-kw">return</span> errors.<span class="t-fn">New</span>(<span class="t-str">"disposable emails are not permitted"</span>)
-    }
-    <span class="t-kw">return</span> <span class="t-kw">nil</span>
-}</code></pre>
+<span class="t-comm">// 2. Route Param DTO with automatic path parameter binding (:id)</span>
+<span class="t-kw">type</span> <span class="t-type">GetUserRequest</span> <span class="t-kw">struct</span> {
+    ID <span class="t-type">string</span> <span class="t-tag">`param:"id" doc:"User unique identifier" example:"usr_1"`</span>
+}
+
+<span class="t-comm">// Optional: Custom business validation (runs automatically after struct tags)</span>
+<span class="t-comm">// func (r *CreateUserRequest) Validate() error { ... }</span></code></pre>
             </div>
 
             <!-- Tab 2: Endpoint -->
             <div class="code-content" id="tab-pane-ep" style="display: none">
-              <pre><code><span class="t-comm">// Function-based generic endpoint with fluent Kite-like metadata</span>
-gota.<span class="t-fn">Post</span>(app, <span class="t-str">"/api/users"</span>, <span class="t-kw">func</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">CreateUserRequest</span>) (<span class="t-type">UserResponse</span>, <span class="t-type">error</span>) {
-    <span class="t-comm">// 1. Parameter binding has already executed automatically</span>
-    <span class="t-comm">// 2. Declarative tags and Validate() have already passed</span>
+              <pre><code><span class="t-comm">// Style A: Struct-based REPR Endpoint (ideal for testability &amp; dependency injection)</span>
+<span class="t-kw">type</span> <span class="t-type">GetUserEndpoint</span> <span class="t-kw">struct</span>{}
 
-    user := <span class="t-type">UserResponse</span>{
-        Location: <span class="t-str">"/api/users/usr_100"</span>,
-        ID:       <span class="t-str">"usr_100"</span>,
-        Name:     req.Name,
-        Email:    req.Email,
+<span class="t-kw">func</span> (e *<span class="t-type">GetUserEndpoint</span>) <span class="t-fn">Handle</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">GetUserRequest</span>) (<span class="t-type">UserResponse</span>, <span class="t-type">error</span>) {
+    <span class="t-kw">for</span> _, u := <span class="t-kw">range</span> mockUsers {
+        <span class="t-kw">if</span> u.ID == req.ID {
+            <span class="t-kw">return</span> u, <span class="t-kw">nil</span>
+        }
     }
+    <span class="t-kw">return</span> <span class="t-type">UserResponse</span>{}, gota.<span class="t-fn">NotFound</span>(<span class="t-str">"User not found"</span>)
+}
 
-    <span class="t-kw">return</span> user, <span class="t-kw">nil</span> <span class="t-comm">// Serialized as JSON with 201 Created (+ Location header)</span>
+userEndpoint := &amp;<span class="t-type">GetUserEndpoint</span>{}
+gota.<span class="t-fn">Get</span>(app, <span class="t-str">"/users/:id"</span>, userEndpoint.<span class="t-fn">Handle</span>).
+    <span class="t-fn">Summary</span>(<span class="t-str">"Get user by ID"</span>).
+    <span class="t-fn">Tags</span>(<span class="t-str">"Users"</span>)
+
+<span class="t-comm">// Style B: Function-based REPR Endpoint (with automated validation &amp; 201 Created)</span>
+gota.<span class="t-fn">Post</span>(app, <span class="t-str">"/users"</span>, <span class="t-kw">func</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">CreateUserRequest</span>) (<span class="t-type">UserResponse</span>, <span class="t-type">error</span>) {
+    newUser := <span class="t-type">UserResponse</span>{ID: <span class="t-str">"usr_3"</span>, Name: req.Name, Email: req.Email, Role: req.Role}
+    mockUsers = <span class="t-fn">append</span>(mockUsers, newUser)
+    <span class="t-kw">return</span> newUser, <span class="t-kw">nil</span>
 }).
-    <span class="t-fn">Summary</span>(<span class="t-str">"Register new user"</span>).
-    <span class="t-fn">Description</span>(<span class="t-str">"Creates account and returns user profile"</span>).
-    <span class="t-fn">Tags</span>(<span class="t-str">"Users"</span>).
-    <span class="t-fn">Status</span>(http.StatusCreated)</code></pre>
+    <span class="t-fn">Status</span>(201).
+    <span class="t-fn">Summary</span>(<span class="t-str">"Register user"</span>).
+    <span class="t-fn">Tags</span>(<span class="t-str">"Users"</span>)</code></pre>
             </div>
 
             <!-- Tab 3: Response -->
             <div class="code-content" id="tab-pane-res" style="display: none">
-              <pre><code><span class="t-comm">// Strongly typed response contract (with optional declarative response headers)</span>
+              <pre><code><span class="t-comm">// Strongly typed response contracts from main.go</span>
 <span class="t-kw">type</span> <span class="t-type">UserResponse</span> <span class="t-kw">struct</span> {
-    Location <span class="t-type">string</span> <span class="t-tag">`header:"Location" json:"-" doc:"URI of created user"`</span>
-    ID       <span class="t-type">string</span> <span class="t-tag">`json:"id" example:"usr_100"`</span>
-    Name     <span class="t-type">string</span> <span class="t-tag">`json:"name" example:"Jane Doe"`</span>
-    Email    <span class="t-type">string</span> <span class="t-tag">`json:"email" example:"jane@corp.com"`</span>
+    ID    <span class="t-type">string</span> <span class="t-tag">`json:"id" example:"usr_1"`</span>
+    Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" example:"Jane Doe"`</span>
+    Email <span class="t-type">string</span> <span class="t-tag">`json:"email" example:"jane.doe@example.com"`</span>
+    Role  <span class="t-type">string</span> <span class="t-tag">`json:"role" example:"admin"`</span>
+}
+
+<span class="t-kw">type</span> <span class="t-type">HealthResponse</span> <span class="t-kw">struct</span> {
+    Status  <span class="t-type">string</span> <span class="t-tag">`json:"status" example:"ok"`</span>
+    Version <span class="t-type">string</span> <span class="t-tag">`json:"version" example:"1.0.0"`</span>
 }
 
 <span class="t-comm">// Special response types supported natively:</span>
-<span class="t-comm">// - gota.Empty{}       -&gt; Renders HTTP 204 No Content</span>
+<span class="t-comm">// - gota.Empty{}       -&gt; Renders HTTP 204 No Content (or empty GET /users)</span>
 <span class="t-comm">// - gota.StreamFunc    -&gt; Chunked byte stream (application/octet-stream)</span>
-<span class="t-comm">// - gota.SSEStream     -&gt; Server-Sent Events live stream (text/event-stream)</span></code></pre>
+<span class="t-comm">// - gota.SSEStream     -&gt; Server-Sent Events live stream (text/event-stream)</span>
+<span class="t-comm">// - Declarative headers: Location string `header:"Location" json:"-" doc:"..."`</span></code></pre>
             </div>
 
             <!-- Tab 4: Scalar / OpenAPI -->
             <div class="code-content" id="tab-pane-doc" style="display: none">
-              <pre><code><span class="t-comm">// Interactive Scalar documentation served out of the box at /docs</span>
-<span class="t-comm">// OpenAPI schema at /openapi.json, TypeScript declarations &amp; SDK at /types.d.ts &amp; /sdk.ts</span>
+              <pre><code><span class="t-comm">// Initializes Gota with built-in OpenAPI 3.1, Scalar UI, and TypeScript routes</span>
+isProd := os.<span class="t-fn">Getenv</span>(<span class="t-str">"ENV"</span>) == <span class="t-str">"production"</span>
+docsPassword := os.<span class="t-fn">Getenv</span>(<span class="t-str">"DOCS_PASSWORD"</span>) <span class="t-comm">// Fallback "admin123" in dev</span>
 
 app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span>{
-    Title:            <span class="t-str">"My API"</span>,
+    Title:            <span class="t-str">"Gota REPR API"</span>,
     Version:          <span class="t-str">"1.0.0"</span>,
-    DocsURL:          <span class="t-str">"/docs"</span>,            <span class="t-comm">// Default: /docs</span>
-    OpenAPIURL:       <span class="t-str">"/openapi.json"</span>,    <span class="t-comm">// Default: /openapi.json</span>
-    TypeScriptURL:    <span class="t-str">"/types.d.ts"</span>,      <span class="t-comm">// Serves TypeScript definitions</span>
-    TypeScriptSDKURL: <span class="t-str">"/sdk.ts"</span>,          <span class="t-comm">// Serves standalone client SDK</span>
-    ScalarTheme:      gota.ThemeFastify,  <span class="t-comm">// Default: Fastify Theme</span>
-    ScalarLayout:     <span class="t-str">"classic"</span>,          <span class="t-comm">// Default: classic layout (Swagger-style)</span>
+    Description:      <span class="t-str">"Go web framework oriented around the REPR Pattern with native interactive Scalar UI."</span>,
+    TypeScriptURL:    tsURL,    <span class="t-comm">// "/types.d.ts" in dev, "-" in prod</span>
+    TypeScriptSDKURL: tsSDKURL, <span class="t-comm">// "/sdk.ts" in dev, "-" in prod</span>
 })
 
-<span class="t-comm">// Protect docs &amp; SDK routes with BasicAuth, brute-force RateLimiter, and TLS enforcement:</span>
-app.<span class="t-fn">UseDocs</span>(gota.<span class="t-fn">BasicAuth</span>(<span class="t-str">"admin"</span>, os.<span class="t-fn">Getenv</span>(<span class="t-str">"DOCS_PASS"</span>), gota.<span class="t-type">BasicAuthOptions</span>{
-    RateLimit: &amp;gota.<span class="t-type">RateLimiterOptions</span>{Max: <span class="t-num">10</span>, Window: time.Minute},
+<span class="t-comm">// Protect documentation and SDK routes with BasicAuth, rate limiting, and HTTPS:</span>
+app.<span class="t-fn">UseDocs</span>(gota.<span class="t-fn">BasicAuth</span>(<span class="t-str">"admin"</span>, docsPassword, gota.<span class="t-type">BasicAuthOptions</span>{
+    Realm: <span class="t-str">"Gota API Documentation"</span>,
+    RateLimit: &amp;gota.<span class="t-type">RateLimiterOptions</span>{
+        Max:    <span class="t-num">10</span>,          <span class="t-comm">// Max 10 attempts</span>
+        Window: time.Minute, <span class="t-comm">// per minute per client IP</span>
+    },
+    AllowWeakCredentials: <span class="t-kw">true</span>,   <span class="t-comm">// silences warning in local dev</span>
+    RequireTLS:           isProd, <span class="t-comm">// enforces HTTPS in production</span>
 }))
 
-<span class="t-comm">// Or export SDK offline for CI/CD: app.ExportTypeScriptSDK("frontend/src/api.ts")</span>
-<span class="t-comm">// OpenAPI 3.1 is derived directly from Go struct types and tags!</span></code></pre>
+<span class="t-comm">// Or export SDK offline directly to disk: app.ExportTypeScriptSDK("frontend/src/api.ts")</span></code></pre>
             </div>
 
             <!-- Tab 5: TypeScript Client SDK -->
             <div class="code-content" id="tab-pane-ts" style="display: none">
-              <pre><code><span class="t-comm">// Zero-dependency TypeScript definitions at /types.d.ts</span>
-<span class="t-comm">// Standalone client SDK served at /sdk.ts or exported via app.ExportTypeScriptSDK()</span>
+              <pre><code><span class="t-comm">// 1. Contracts auto-generated by Gota from main.go Go structs:</span>
+<span class="t-kw">export interface</span> <span class="t-type">CreateUserRequest</span> {
+  name: <span class="t-type">string</span>;   <span class="t-comm">// required, min=3</span>
+  email: <span class="t-type">string</span>;  <span class="t-comm">// required, email</span>
+  role?: <span class="t-type">string</span>;  <span class="t-comm">// default: member</span>
+}
 
-<span class="t-kw">import</span> { createGotaClient } <span class="t-kw">from</span> <span class="t-str">"./api"</span>; <span class="t-comm">// curl -u admin:admin123 -o src/api.ts http://localhost:3000/sdk.ts</span>
+<span class="t-kw">export interface</span> <span class="t-type">UserResponse</span> {
+  id?: <span class="t-type">string</span>;
+  name?: <span class="t-type">string</span>;
+  email?: <span class="t-type">string</span>;
+  role?: <span class="t-type">string</span>;
+}
+
+<span class="t-kw">export interface</span> <span class="t-type">GotaEndpoints</span> {
+  <span class="t-str">"GET /users"</span>: { response: <span class="t-type">UserResponse</span>[] };
+  <span class="t-str">"GET /users/:id"</span>: { params: { id: <span class="t-type">string</span> }; response: <span class="t-type">UserResponse</span> };
+  <span class="t-str">"POST /users"</span>: { body: <span class="t-type">CreateUserRequest</span>; response: <span class="t-type">UserResponse</span> };
+}
+
+<span class="t-comm">// 2. Frontend client usage (curl -u admin:admin123 -o src/api.ts http://localhost:3000/sdk.ts):</span>
+<span class="t-kw">import</span> { createGotaClient } <span class="t-kw">from</span> <span class="t-str">"./api"</span>;
 
 <span class="t-kw">const</span> api = <span class="t-fn">createGotaClient</span>(process.env.NEXT_PUBLIC_API_URL || <span class="t-str">"http://localhost:3000"</span>);
 
-<span class="t-comm">// 1. Editor autocompletes valid routes & enforces required route parameters</span>
+<span class="t-comm">// Autocompletes "GET /users/:id" and strictly enforces required params { id }:</span>
 <span class="t-kw">const</span> user = <span class="t-kw">await</span> api.<span class="t-fn">fetch</span>(<span class="t-str">"GET /users/:id"</span>, {
-    params: { id: <span class="t-str">"usr_100"</span> },
+  params: { id: <span class="t-str">"usr_1"</span> },
 });
+console.<span class="t-fn">log</span>(user.name); <span class="t-comm">// 100% typed: inferred directly from Go struct UserResponse</span>
 
-<span class="t-comm">// 2. Fully typed: response inferred directly from Go struct UserResponse</span>
-console.<span class="t-fn">log</span>(user.name); <span class="t-comm">// string</span>
-
-<span class="t-comm">// 3. Autocompleted and type-safe request bodies</span>
+<span class="t-comm">// Type-safe POST with autocompleted CreateUserRequest body:</span>
 <span class="t-kw">const</span> created = <span class="t-kw">await</span> api.<span class="t-fn">fetch</span>(<span class="t-str">"POST /users"</span>, {
-    body: { name: <span class="t-str">"Jane Doe"</span>, email: <span class="t-str">"jane@corp.com"</span> },
+  body: { name: <span class="t-str">"Jane Doe"</span>, email: <span class="t-str">"jane.doe@example.com"</span>, role: <span class="t-str">"admin"</span> },
 });</code></pre>
             </div>
           </div>
