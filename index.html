@@ -355,69 +355,60 @@
 
             <!-- Tab 1: Request -->
             <div class="code-content" id="tab-pane-req">
-              <pre><code><span class="t-comm">// 1. JSON Body DTO with automated validation rules and OpenAPI documentation</span>
-<span class="t-kw">type</span> <span class="t-type">CreateUserRequest</span> <span class="t-kw">struct</span> {
-    Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" doc:"Full name of user" example:"Jane Doe" validate:"required,min=3"`</span>
-    Email <span class="t-type">string</span> <span class="t-tag">`json:"email" doc:"Valid corporate or personal email" example:"jane.doe@example.com" validate:"required,email"`</span>
-    Role  <span class="t-type">string</span> <span class="t-tag">`json:"role" doc:"User access role" example:"admin" default:"member"`</span>
+              <pre><code><span class="t-comm">// 1. Route Param DTO with automatic path parameter binding (:id)</span>
+<span class="t-kw">type</span> <span class="t-type">GetTodoRequest</span> <span class="t-kw">struct</span> {
+    ID <span class="t-type">string</span> <span class="t-tag">`param:"id" doc:"Todo identifier" example:"todo_1" validate:"required" msg:"Todo ID is required"`</span>
 }
 
-<span class="t-comm">// 2. Route Param DTO with automatic path parameter binding (:id)</span>
-<span class="t-kw">type</span> <span class="t-type">GetUserRequest</span> <span class="t-kw">struct</span> {
-    ID <span class="t-type">string</span> <span class="t-tag">`param:"id" doc:"User unique identifier" example:"usr_1"`</span>
-}
-
-<span class="t-comm">// Optional: Custom business validation (runs automatically after struct tags)</span>
-<span class="t-comm">// func (r *CreateUserRequest) Validate() error { ... }</span></code></pre>
+<span class="t-comm">// 2. JSON Body DTO with automated validation rules, custom messages, and OpenAPI metadata</span>
+<span class="t-kw">type</span> <span class="t-type">CreateTodoRequest</span> <span class="t-kw">struct</span> {
+    Title    <span class="t-type">string</span> <span class="t-tag">`json:"title" doc:"Task title" example:"Review pull requests" validate:"required,min=3" msg:"required:Title is required|min:Title must be at least 3 characters"`</span>
+    Priority <span class="t-type">string</span> <span class="t-tag">`json:"priority" doc:"Task priority" example:"high" default:"normal" validate:"oneof=low,normal,high" msg:"Priority must be low, normal, or high"`</span>
+}</code></pre>
             </div>
 
             <!-- Tab 2: Endpoint -->
             <div class="code-content" id="tab-pane-ep" style="display: none">
-              <pre><code><span class="t-comm">// Style A: Struct-based REPR Endpoint (ideal for testability &amp; dependency injection)</span>
-<span class="t-kw">type</span> <span class="t-type">GetUserEndpoint</span> <span class="t-kw">struct</span>{}
-
-<span class="t-kw">func</span> (e *<span class="t-type">GetUserEndpoint</span>) <span class="t-fn">Handle</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">GetUserRequest</span>) (<span class="t-type">UserResponse</span>, <span class="t-type">error</span>) {
-    <span class="t-kw">for</span> _, u := <span class="t-kw">range</span> mockUsers {
-        <span class="t-kw">if</span> u.ID == req.ID {
-            <span class="t-kw">return</span> u, <span class="t-kw">nil</span>
-        }
-    }
-    <span class="t-kw">return</span> <span class="t-type">UserResponse</span>{}, gota.<span class="t-fn">NotFound</span>(<span class="t-str">"User not found"</span>)
+              <pre><code><span class="t-kw">type</span> <span class="t-type">GetTodoEndpoint</span> <span class="t-kw">struct</span> {
+    Store *<span class="t-type">TodoStore</span>
 }
 
-userEndpoint := &amp;<span class="t-type">GetUserEndpoint</span>{}
-gota.<span class="t-fn">Get</span>(app, <span class="t-str">"/users/:id"</span>, userEndpoint.<span class="t-fn">Handle</span>).
-    <span class="t-fn">Summary</span>(<span class="t-str">"Get user by ID"</span>).
-    <span class="t-fn">Tags</span>(<span class="t-str">"Users"</span>)
+<span class="t-kw">func</span> (e *<span class="t-type">GetTodoEndpoint</span>) <span class="t-fn">Handle</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">GetTodoRequest</span>) (<span class="t-type">TodoResponse</span>, <span class="t-type">error</span>) {
+    e.Store.mu.<span class="t-fn">RLock</span>()
+    <span class="t-kw">defer</span> e.Store.mu.<span class="t-fn">RUnlock</span>()
 
-<span class="t-comm">// Style B: Function-based REPR Endpoint (with automated validation &amp; 201 Created)</span>
-gota.<span class="t-fn">Post</span>(app, <span class="t-str">"/users"</span>, <span class="t-kw">func</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">CreateUserRequest</span>) (<span class="t-type">UserResponse</span>, <span class="t-type">error</span>) {
-    newUser := <span class="t-type">UserResponse</span>{ID: <span class="t-str">"usr_3"</span>, Name: req.Name, Email: req.Email, Role: req.Role}
-    mockUsers = <span class="t-fn">append</span>(mockUsers, newUser)
-    <span class="t-kw">return</span> newUser, <span class="t-kw">nil</span>
-}).
-    <span class="t-fn">Status</span>(201).
-    <span class="t-fn">Summary</span>(<span class="t-str">"Register user"</span>).
-    <span class="t-fn">Tags</span>(<span class="t-str">"Users"</span>)</code></pre>
+    <span class="t-kw">for</span> _, t := <span class="t-kw">range</span> e.Store.items {
+        <span class="t-kw">if</span> t.ID == req.ID {
+            <span class="t-kw">return</span> t, <span class="t-kw">nil</span>
+        }
+    }
+    <span class="t-kw">return</span> <span class="t-type">TodoResponse</span>{}, gota.<span class="t-fn">NotFound</span>(<span class="t-str">"Todo not found"</span>)
+}
+
+gota.<span class="t-fn">HandleEndpoint</span>(app, http.MethodGet, <span class="t-str">"/todos/:id"</span>, &amp;<span class="t-type">GetTodoEndpoint</span>{Store: store}).
+    <span class="t-fn">Summary</span>(<span class="t-str">"Get todo by ID"</span>).
+    <span class="t-fn">Description</span>(<span class="t-str">"Retrieves a single todo item by its unique identifier."</span>).
+    <span class="t-fn">Tags</span>(<span class="t-str">"Todos"</span>)
+
+gota.<span class="t-fn">HandleEndpoint</span>(app, http.MethodPost, <span class="t-str">"/todos"</span>, &amp;<span class="t-type">CreateTodoEndpoint</span>{Store: store}).
+    <span class="t-fn">Status</span>(http.StatusCreated).
+    <span class="t-fn">Summary</span>(<span class="t-str">"Create a new todo"</span>).
+    <span class="t-fn">Description</span>(<span class="t-str">"Validates the input payload and creates a new todo item."</span>).
+    <span class="t-fn">Tags</span>(<span class="t-str">"Todos"</span>)</code></pre>
             </div>
 
             <!-- Tab 3: Response -->
             <div class="code-content" id="tab-pane-res" style="display: none">
-              <pre><code><span class="t-comm">// Strongly typed response contracts from main.go</span>
-<span class="t-kw">type</span> <span class="t-type">UserResponse</span> <span class="t-kw">struct</span> {
-    ID    <span class="t-type">string</span> <span class="t-tag">`json:"id" example:"usr_1"`</span>
-    Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" example:"Jane Doe"`</span>
-    Email <span class="t-type">string</span> <span class="t-tag">`json:"email" example:"jane.doe@example.com"`</span>
-    Role  <span class="t-type">string</span> <span class="t-tag">`json:"role" example:"admin"`</span>
-}
-
-<span class="t-kw">type</span> <span class="t-type">HealthResponse</span> <span class="t-kw">struct</span> {
-    Status  <span class="t-type">string</span> <span class="t-tag">`json:"status" example:"ok"`</span>
-    Version <span class="t-type">string</span> <span class="t-tag">`json:"version" example:"1.0.0"`</span>
+              <pre><code><span class="t-comm">// Strongly typed response contract from main.go</span>
+<span class="t-kw">type</span> <span class="t-type">TodoResponse</span> <span class="t-kw">struct</span> {
+    ID       <span class="t-type">string</span> <span class="t-tag">`json:"id" doc:"Todo ID" example:"todo_1"`</span>
+    Title    <span class="t-type">string</span> <span class="t-tag">`json:"title" doc:"Task title" example:"Review pull requests"`</span>
+    Priority <span class="t-type">string</span> <span class="t-tag">`json:"priority" doc:"Task priority" example:"normal"`</span>
+    Done     <span class="t-type">bool</span>   <span class="t-tag">`json:"done" doc:"Completion status" example:"false"`</span>
 }
 
 <span class="t-comm">// Special response types supported natively:</span>
-<span class="t-comm">// - gota.Empty{}       -&gt; Renders HTTP 204 No Content (or empty GET /users)</span>
+<span class="t-comm">// - gota.Empty{}       -&gt; Renders HTTP 204 No Content (or empty request DTO for GET /todos)</span>
 <span class="t-comm">// - gota.StreamFunc    -&gt; Chunked byte stream (application/octet-stream)</span>
 <span class="t-comm">// - gota.SSEStream     -&gt; Server-Sent Events live stream (text/event-stream)</span>
 <span class="t-comm">// - Declarative headers: Location string `header:"Location" json:"-" doc:"..."`</span></code></pre>
@@ -425,52 +416,52 @@ gota.<span class="t-fn">Post</span>(app, <span class="t-str">"/users"</span>, <s
 
             <!-- Tab 4: Scalar / OpenAPI -->
             <div class="code-content" id="tab-pane-doc" style="display: none">
-              <pre><code><span class="t-comm">// Initializes Gota with built-in OpenAPI 3.1, Scalar UI, and TypeScript routes</span>
-isProd := os.<span class="t-fn">Getenv</span>(<span class="t-str">"ENV"</span>) == <span class="t-str">"production"</span>
-docsPassword := os.<span class="t-fn">Getenv</span>(<span class="t-str">"DOCS_PASSWORD"</span>) <span class="t-comm">// Fallback "admin123" in dev</span>
+              <pre><code>isProd := os.<span class="t-fn">Getenv</span>(<span class="t-str">"ENV"</span>) == <span class="t-str">"production"</span>
+
+<span class="t-comm">// Disable runtime TypeScript HTTP routes in production (use app.ExportTypeScriptSDK in CI/CD instead)</span>
+tsURL, tsSDKURL := <span class="t-str">"/types.d.ts"</span>, <span class="t-str">"/sdk.ts"</span>
+<span class="t-kw">if</span> isProd {
+    tsURL, tsSDKURL = <span class="t-str">"-"</span>, <span class="t-str">"-"</span>
+}
 
 app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span>{
-    Title:            <span class="t-str">"Gota REPR API"</span>,
-    Version:          <span class="t-str">"1.0.0"</span>,
-    Description:      <span class="t-str">"Go web framework oriented around the REPR Pattern with native interactive Scalar UI."</span>,
-    TypeScriptURL:    tsURL,    <span class="t-comm">// "/types.d.ts" in dev, "-" in prod</span>
-    TypeScriptSDKURL: tsSDKURL, <span class="t-comm">// "/sdk.ts" in dev, "-" in prod</span>
+    Title:                 <span class="t-str">"Gota REPR API"</span>,
+    Version:               <span class="t-str">"1.0.0"</span>,
+    Description:           <span class="t-str">"Minimal Request-Endpoint-Response (REPR) API with Scalar OpenAPI 3.1 and TypeScript SDK."</span>,
+    TypeScriptURL:         tsURL,
+    TypeScriptSDKURL:      tsSDKURL,
+    DisallowUnknownFields: <span class="t-kw">true</span>,
+    DocsCSPEnforce:        <span class="t-kw">true</span>,
 })
 
-<span class="t-comm">// Protect documentation and SDK routes with BasicAuth, rate limiting, and HTTPS:</span>
+<span class="t-comm">// Protect /docs, /openapi.json, /types.d.ts, and /sdk.ts with Basic Auth and rate limiting</span>
 app.<span class="t-fn">UseDocs</span>(gota.<span class="t-fn">BasicAuth</span>(<span class="t-str">"admin"</span>, docsPassword, gota.<span class="t-type">BasicAuthOptions</span>{
-    Realm: <span class="t-str">"Gota API Documentation"</span>,
-    RateLimit: &amp;gota.<span class="t-type">RateLimiterOptions</span>{
-        Max:    <span class="t-num">10</span>,          <span class="t-comm">// Max 10 attempts</span>
-        Window: time.Minute, <span class="t-comm">// per minute per client IP</span>
-    },
-    AllowWeakCredentials: <span class="t-kw">true</span>,   <span class="t-comm">// silences warning in local dev</span>
-    RequireTLS:           isProd, <span class="t-comm">// enforces HTTPS in production</span>
-}))
-
-<span class="t-comm">// Or export SDK offline directly to disk: app.ExportTypeScriptSDK("frontend/src/api.ts")</span></code></pre>
+    Realm:                <span class="t-str">"Gota API Documentation"</span>,
+    RateLimit:            &amp;gota.<span class="t-type">RateLimiterOptions</span>{Max: <span class="t-num">10</span>, Window: time.Minute},
+    AllowWeakCredentials: !isProd,
+    RequireTLS:           isProd,
+}))</code></pre>
             </div>
 
             <!-- Tab 5: TypeScript Client SDK -->
             <div class="code-content" id="tab-pane-ts" style="display: none">
               <pre><code><span class="t-comm">// 1. Contracts auto-generated by Gota from main.go Go structs:</span>
-<span class="t-kw">export interface</span> <span class="t-type">CreateUserRequest</span> {
-  name: <span class="t-type">string</span>;   <span class="t-comm">// required, min=3</span>
-  email: <span class="t-type">string</span>;  <span class="t-comm">// required, email</span>
-  role?: <span class="t-type">string</span>;  <span class="t-comm">// default: member</span>
+<span class="t-kw">export interface</span> <span class="t-type">CreateTodoRequest</span> {
+  title: <span class="t-type">string</span>;                           <span class="t-comm">// required, min=3</span>
+  priority?: <span class="t-str">"low"</span> | <span class="t-str">"normal"</span> | <span class="t-str">"high"</span>;  <span class="t-comm">// default: normal</span>
 }
 
-<span class="t-kw">export interface</span> <span class="t-type">UserResponse</span> {
-  id?: <span class="t-type">string</span>;
-  name?: <span class="t-type">string</span>;
-  email?: <span class="t-type">string</span>;
-  role?: <span class="t-type">string</span>;
+<span class="t-kw">export interface</span> <span class="t-type">TodoResponse</span> {
+  id: <span class="t-type">string</span>;
+  title: <span class="t-type">string</span>;
+  priority: <span class="t-type">string</span>;
+  done: <span class="t-type">boolean</span>;
 }
 
 <span class="t-kw">export interface</span> <span class="t-type">GotaEndpoints</span> {
-  <span class="t-str">"GET /users"</span>: { response: <span class="t-type">UserResponse</span>[] };
-  <span class="t-str">"GET /users/:id"</span>: { params: { id: <span class="t-type">string</span> }; response: <span class="t-type">UserResponse</span> };
-  <span class="t-str">"POST /users"</span>: { body: <span class="t-type">CreateUserRequest</span>; response: <span class="t-type">UserResponse</span> };
+  <span class="t-str">"GET /todos"</span>: { response: <span class="t-type">TodoResponse</span>[] };
+  <span class="t-str">"GET /todos/:id"</span>: { params: { id: <span class="t-type">string</span> }; response: <span class="t-type">TodoResponse</span> };
+  <span class="t-str">"POST /todos"</span>: { body: <span class="t-type">CreateTodoRequest</span>; response: <span class="t-type">TodoResponse</span> };
 }
 
 <span class="t-comm">// 2. Frontend client usage (curl -u admin:admin123 -o src/api.ts http://localhost:3000/sdk.ts):</span>
@@ -478,15 +469,13 @@ app.<span class="t-fn">UseDocs</span>(gota.<span class="t-fn">BasicAuth</span>(<
 
 <span class="t-kw">const</span> api = <span class="t-fn">createGotaClient</span>(process.env.NEXT_PUBLIC_API_URL || <span class="t-str">"http://localhost:3000"</span>);
 
-<span class="t-comm">// Autocompletes "GET /users/:id" and strictly enforces required params { id }:</span>
-<span class="t-kw">const</span> user = <span class="t-kw">await</span> api.<span class="t-fn">fetch</span>(<span class="t-str">"GET /users/:id"</span>, {
-  params: { id: <span class="t-str">"usr_1"</span> },
+<span class="t-kw">const</span> todo = <span class="t-kw">await</span> api.<span class="t-fn">fetch</span>(<span class="t-str">"GET /todos/:id"</span>, {
+  params: { id: <span class="t-str">"todo_1"</span> },
 });
-console.<span class="t-fn">log</span>(user.name); <span class="t-comm">// 100% typed: inferred directly from Go struct UserResponse</span>
+console.<span class="t-fn">log</span>(todo.title); <span class="t-comm">// 100% typed: inferred directly from Go struct TodoResponse</span>
 
-<span class="t-comm">// Type-safe POST with autocompleted CreateUserRequest body:</span>
-<span class="t-kw">const</span> created = <span class="t-kw">await</span> api.<span class="t-fn">fetch</span>(<span class="t-str">"POST /users"</span>, {
-  body: { name: <span class="t-str">"Jane Doe"</span>, email: <span class="t-str">"jane.doe@example.com"</span>, role: <span class="t-str">"admin"</span> },
+<span class="t-kw">const</span> created = <span class="t-kw">await</span> api.<span class="t-fn">fetch</span>(<span class="t-str">"POST /todos"</span>, {
+  body: { title: <span class="t-str">"Review pull requests"</span>, priority: <span class="t-str">"high"</span> },
 });</code></pre>
             </div>
           </div>
@@ -734,149 +723,162 @@ console.<span class="t-fn">log</span>(user.name); <span class="t-comm">// 100% t
               <pre><code id="quickstart-code"><span class="t-kw">package</span> main
 
 <span class="t-kw">import</span> (
+	<span class="t-str">"fmt"</span>
 	<span class="t-str">"log"</span>
+	<span class="t-str">"net/http"</span>
 	<span class="t-str">"os"</span>
+	<span class="t-str">"sync"</span>
 	<span class="t-str">"time"</span>
 
 	<span class="t-str">"github.com/carlosxfelipe/gota"</span>
 )
 
-<span class="t-comm">// ----------------------------------------------------------------------</span>
-<span class="t-comm">// Request and Response Contracts (REPR Pattern)</span>
-<span class="t-comm">// ----------------------------------------------------------------------</span>
-
-<span class="t-kw">type</span> <span class="t-type">CreateUserRequest</span> <span class="t-kw">struct</span> {
-	Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" doc:"Full name of user" example:"Jane Doe" validate:"required,min=3"`</span>
-	Email <span class="t-type">string</span> <span class="t-tag">`json:"email" doc:"Valid corporate or personal email" example:"jane.doe@example.com" validate:"required,email"`</span>
-	Role  <span class="t-type">string</span> <span class="t-tag">`json:"role" doc:"User access role" example:"admin" default:"member"`</span>
+<span class="t-kw">type</span> <span class="t-type">TodoStore</span> <span class="t-kw">struct</span> {
+	mu    sync.<span class="t-type">RWMutex</span>
+	items []<span class="t-type">TodoResponse</span>
 }
 
-<span class="t-kw">type</span> <span class="t-type">GetUserRequest</span> <span class="t-kw">struct</span> {
-	ID <span class="t-type">string</span> <span class="t-tag">`param:"id" doc:"User unique identifier" example:"usr_1"`</span>
+<span class="t-kw">func</span> <span class="t-fn">NewTodoStore</span>() *<span class="t-type">TodoStore</span> {
+	<span class="t-kw">return</span> &amp;<span class="t-type">TodoStore</span>{
+		items: []<span class="t-type">TodoResponse</span>{
+			{ID: <span class="t-str">"todo_1"</span>, Title: <span class="t-str">"Update README badges"</span>, Priority: <span class="t-str">"low"</span>, Done: <span class="t-kw">true</span>},
+			{ID: <span class="t-str">"todo_2"</span>, Title: <span class="t-str">"Review pull requests"</span>, Priority: <span class="t-str">"normal"</span>, Done: <span class="t-kw">false</span>},
+			{ID: <span class="t-str">"todo_3"</span>, Title: <span class="t-str">"Deploy release v1.0"</span>, Priority: <span class="t-str">"high"</span>, Done: <span class="t-kw">false</span>},
+		},
+	}
 }
 
-<span class="t-kw">type</span> <span class="t-type">UserResponse</span> <span class="t-kw">struct</span> {
-	ID    <span class="t-type">string</span> <span class="t-tag">`json:"id" example:"usr_1"`</span>
-	Name  <span class="t-type">string</span> <span class="t-tag">`json:"name" example:"Jane Doe"`</span>
-	Email <span class="t-type">string</span> <span class="t-tag">`json:"email" example:"jane.doe@example.com"`</span>
-	Role  <span class="t-type">string</span> <span class="t-tag">`json:"role" example:"admin"`</span>
+<span class="t-kw">type</span> <span class="t-type">GetTodoRequest</span> <span class="t-kw">struct</span> {
+	ID <span class="t-type">string</span> <span class="t-tag">`param:"id" doc:"Todo identifier" example:"todo_1" validate:"required" msg:"Todo ID is required"`</span>
 }
 
-<span class="t-kw">type</span> <span class="t-type">HealthResponse</span> <span class="t-kw">struct</span> {
-	Status  <span class="t-type">string</span> <span class="t-tag">`json:"status" example:"ok"`</span>
-	Version <span class="t-type">string</span> <span class="t-tag">`json:"version" example:"1.0.0"`</span>
+<span class="t-kw">type</span> <span class="t-type">CreateTodoRequest</span> <span class="t-kw">struct</span> {
+	Title    <span class="t-type">string</span> <span class="t-tag">`json:"title" doc:"Task title" example:"Review pull requests" validate:"required,min=3" msg:"required:Title is required|min:Title must be at least 3 characters"`</span>
+	Priority <span class="t-type">string</span> <span class="t-tag">`json:"priority" doc:"Task priority" example:"high" default:"normal" validate:"oneof=low,normal,high" msg:"Priority must be low, normal, or high"`</span>
 }
 
-<span class="t-kw">var</span> mockUsers = []<span class="t-type">UserResponse</span>{
-	{ID: <span class="t-str">"usr_1"</span>, Name: <span class="t-str">"Jane Doe"</span>, Email: <span class="t-str">"jane.doe@example.com"</span>, Role: <span class="t-str">"admin"</span>},
-	{ID: <span class="t-str">"usr_2"</span>, Name: <span class="t-str">"John Smith"</span>, Email: <span class="t-str">"john.smith@example.com"</span>, Role: <span class="t-str">"member"</span>},
+<span class="t-kw">type</span> <span class="t-type">TodoResponse</span> <span class="t-kw">struct</span> {
+	ID       <span class="t-type">string</span> <span class="t-tag">`json:"id" doc:"Todo ID" example:"todo_1"`</span>
+	Title    <span class="t-type">string</span> <span class="t-tag">`json:"title" doc:"Task title" example:"Review pull requests"`</span>
+	Priority <span class="t-type">string</span> <span class="t-tag">`json:"priority" doc:"Task priority" example:"normal"`</span>
+	Done     <span class="t-type">bool</span>   <span class="t-tag">`json:"done" doc:"Completion status" example:"false"`</span>
 }
 
-<span class="t-comm">// ----------------------------------------------------------------------</span>
-<span class="t-comm">// Struct-Based REPR Endpoint Example</span>
-<span class="t-comm">// ----------------------------------------------------------------------</span>
+<span class="t-kw">type</span> <span class="t-type">ListTodosEndpoint</span> <span class="t-kw">struct</span> {
+	Store *<span class="t-type">TodoStore</span>
+}
 
-<span class="t-kw">type</span> <span class="t-type">GetUserEndpoint</span> <span class="t-kw">struct</span>{}
+<span class="t-kw">func</span> (e *<span class="t-type">ListTodosEndpoint</span>) <span class="t-fn">Handle</span>(ctx *gota.<span class="t-type">Context</span>, _ gota.<span class="t-type">Empty</span>) ([]<span class="t-type">TodoResponse</span>, <span class="t-type">error</span>) {
+	e.Store.mu.<span class="t-fn">RLock</span>()
+	<span class="t-kw">defer</span> e.Store.mu.<span class="t-fn">RUnlock</span>()
 
-<span class="t-kw">func</span> (e *<span class="t-type">GetUserEndpoint</span>) <span class="t-fn">Handle</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">GetUserRequest</span>) (<span class="t-type">UserResponse</span>, <span class="t-type">error</span>) {
-	<span class="t-kw">for</span> _, u := <span class="t-kw">range</span> mockUsers {
-		<span class="t-kw">if</span> u.ID == req.ID {
-			<span class="t-kw">return</span> u, <span class="t-kw">nil</span>
+	out := <span class="t-fn">make</span>([]<span class="t-type">TodoResponse</span>, <span class="t-fn">len</span>(e.Store.items))
+	<span class="t-fn">copy</span>(out, e.Store.items)
+	<span class="t-kw">return</span> out, <span class="t-kw">nil</span>
+}
+
+<span class="t-kw">type</span> <span class="t-type">GetTodoEndpoint</span> <span class="t-kw">struct</span> {
+	Store *<span class="t-type">TodoStore</span>
+}
+
+<span class="t-kw">func</span> (e *<span class="t-type">GetTodoEndpoint</span>) <span class="t-fn">Handle</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">GetTodoRequest</span>) (<span class="t-type">TodoResponse</span>, <span class="t-type">error</span>) {
+	e.Store.mu.<span class="t-fn">RLock</span>()
+	<span class="t-kw">defer</span> e.Store.mu.<span class="t-fn">RUnlock</span>()
+
+	<span class="t-kw">for</span> _, t := <span class="t-kw">range</span> e.Store.items {
+		<span class="t-kw">if</span> t.ID == req.ID {
+			<span class="t-kw">return</span> t, <span class="t-kw">nil</span>
 		}
 	}
-	<span class="t-kw">return</span> <span class="t-type">UserResponse</span>{}, gota.<span class="t-fn">NotFound</span>(<span class="t-str">"User not found"</span>)
+	<span class="t-kw">return</span> <span class="t-type">TodoResponse</span>{}, gota.<span class="t-fn">NotFound</span>(<span class="t-str">"Todo not found"</span>)
 }
 
-<span class="t-comm">// ----------------------------------------------------------------------</span>
-<span class="t-comm">// Main Application</span>
-<span class="t-comm">// ----------------------------------------------------------------------</span>
+<span class="t-kw">type</span> <span class="t-type">CreateTodoEndpoint</span> <span class="t-kw">struct</span> {
+	Store *<span class="t-type">TodoStore</span>
+}
 
-<span class="t-kw">func</span> main() {
-	isProd := os.<span class="t-fn">Getenv</span>(<span class="t-str">"ENV"</span>) == <span class="t-str">"production"</span>
-
-	<span class="t-comm">// In production, disable runtime HTTP TypeScript endpoints (use offline export instead)</span>
-	tsURL := <span class="t-str">"/types.d.ts"</span>
-	tsSDKURL := <span class="t-str">"/sdk.ts"</span>
-	<span class="t-kw">if</span> isProd {
-		tsURL = <span class="t-str">"-"</span>
-		tsSDKURL = <span class="t-str">"-"</span>
+<span class="t-kw">func</span> (e *<span class="t-type">CreateTodoEndpoint</span>) <span class="t-fn">Handle</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">CreateTodoRequest</span>) (<span class="t-type">TodoResponse</span>, <span class="t-type">error</span>) {
+	priority := req.Priority
+	<span class="t-kw">if</span> priority == <span class="t-str">""</span> {
+		priority = <span class="t-str">"normal"</span>
 	}
 
-	<span class="t-comm">// Initializes Gota with built-in OpenAPI 3.1, Scalar docs, and TypeScript SDK routes</span>
+	e.Store.mu.<span class="t-fn">Lock</span>()
+	<span class="t-kw">defer</span> e.Store.mu.<span class="t-fn">Unlock</span>()
+
+	todo := <span class="t-type">TodoResponse</span>{
+		ID:       fmt.<span class="t-fn">Sprintf</span>(<span class="t-str">"todo_%d"</span>, <span class="t-fn">len</span>(e.Store.items)+<span class="t-num">1</span>),
+		Title:    req.Title,
+		Priority: priority,
+		Done:     <span class="t-kw">false</span>,
+	}
+	e.Store.items = <span class="t-fn">append</span>(e.Store.items, todo)
+	<span class="t-kw">return</span> todo, <span class="t-kw">nil</span>
+}
+
+<span class="t-kw">func</span> <span class="t-fn">main</span>() {
+	isProd := os.<span class="t-fn">Getenv</span>(<span class="t-str">"ENV"</span>) == <span class="t-str">"production"</span>
+
+	<span class="t-comm">// Disable runtime TypeScript HTTP routes in production (use app.ExportTypeScriptSDK in CI/CD instead)</span>
+	tsURL, tsSDKURL := <span class="t-str">"/types.d.ts"</span>, <span class="t-str">"/sdk.ts"</span>
+	<span class="t-kw">if</span> isProd {
+		tsURL, tsSDKURL = <span class="t-str">"-"</span>, <span class="t-str">"-"</span>
+	}
+
 	app := gota.<span class="t-fn">New</span>(gota.<span class="t-type">Config</span>{
-		Title:            <span class="t-str">"Gota REPR API"</span>,
-		Version:          <span class="t-str">"1.0.0"</span>,
-		Description:      <span class="t-str">"Go web framework oriented around the REPR Pattern with native interactive Scalar UI."</span>,
-		TypeScriptURL:    tsURL,
-		TypeScriptSDKURL: tsSDKURL,
+		Title:                 <span class="t-str">"Gota REPR API"</span>,
+		Version:               <span class="t-str">"1.0.0"</span>,
+		Description:           <span class="t-str">"Minimal Request-Endpoint-Response (REPR) API with Scalar OpenAPI 3.1 and TypeScript SDK."</span>,
+		TypeScriptURL:         tsURL,
+		TypeScriptSDKURL:      tsSDKURL,
+		DisallowUnknownFields: <span class="t-kw">true</span>,
+		DocsCSPEnforce:        <span class="t-kw">true</span>,
 	})
 
-	<span class="t-comm">// Global Middlewares</span>
-	app.<span class="t-fn">Use</span>(gota.RequestID())
-	app.<span class="t-fn">Use</span>(gota.Logger())
-	app.<span class="t-fn">Use</span>(gota.Recover())
-	app.<span class="t-fn">Use</span>(gota.CORS())
+	app.<span class="t-fn">Use</span>(gota.<span class="t-fn">RequestID</span>())
+	app.<span class="t-fn">Use</span>(gota.<span class="t-fn">Logger</span>())
+	app.<span class="t-fn">Use</span>(gota.<span class="t-fn">Recover</span>())
+	app.<span class="t-fn">Use</span>(gota.<span class="t-fn">SecureHeaders</span>())
+	app.<span class="t-fn">Use</span>(gota.<span class="t-fn">Gzip</span>())
+	app.<span class="t-fn">Use</span>(gota.<span class="t-fn">CORS</span>())
 
-	<span class="t-comm">// Protect documentation, schemas, and SDK routes (/docs, /openapi.json, /types.d.ts, /sdk.ts)</span>
-	<span class="t-comm">// with HTTP Basic Auth and built-in Rate Limiting to prevent brute-force attacks:</span>
+	<span class="t-comm">// Protect /docs, /openapi.json, /types.d.ts, and /sdk.ts with Basic Auth and rate limiting</span>
 	docsPassword := os.<span class="t-fn">Getenv</span>(<span class="t-str">"DOCS_PASSWORD"</span>)
 	<span class="t-kw">if</span> docsPassword == <span class="t-str">""</span> {
 		<span class="t-kw">if</span> isProd {
 			log.<span class="t-fn">Fatal</span>(<span class="t-str">"DOCS_PASSWORD environment variable must be set in production"</span>)
 		}
-		docsPassword = <span class="t-str">"admin123"</span> <span class="t-comm">// Fallback password for local development</span>
+		docsPassword = <span class="t-str">"admin123"</span>
 	}
 	app.<span class="t-fn">UseDocs</span>(gota.<span class="t-fn">BasicAuth</span>(<span class="t-str">"admin"</span>, docsPassword, gota.<span class="t-type">BasicAuthOptions</span>{
-		Realm: <span class="t-str">"Gota API Documentation"</span>,
-		RateLimit: &gota.<span class="t-type">RateLimiterOptions</span>{
-			Max:    10,          <span class="t-comm">// Max 10 attempts</span>
-			Window: time.Minute, <span class="t-comm">// per minute per client IP</span>
-		},
-		AllowWeakCredentials: true,   <span class="t-comm">// silences the weak password warning during local development</span>
-		RequireTLS:           isProd, <span class="t-comm">// enforces HTTPS for remote clients in production</span>
+		Realm:                <span class="t-str">"Gota API Documentation"</span>,
+		RateLimit:            &amp;gota.<span class="t-type">RateLimiterOptions</span>{Max: <span class="t-num">10</span>, Window: time.Minute},
+		AllowWeakCredentials: !isProd,
+		RequireTLS:           isProd,
 	}))
 
-	<span class="t-comm">// 1. Healthcheck Endpoint (Empty Request)</span>
-	gota.<span class="t-fn">Get</span>(app, <span class="t-str">"/"</span>, <span class="t-kw">func</span>(ctx *gota.<span class="t-type">Context</span>, _ gota.<span class="t-type">Empty</span>) (<span class="t-type">HealthResponse</span>, <span class="t-type">error</span>) {
-		<span class="t-kw">return</span> <span class="t-type">HealthResponse</span>{Status: <span class="t-str">"ok"</span>, Version: <span class="t-str">"1.0.0"</span>}, <span class="t-kw">nil</span>
-	}).
-		<span class="t-fn">Summary</span>(<span class="t-str">"Healthcheck"</span>).
-		<span class="t-fn">Description</span>(<span class="t-str">"Returns system status and current version"</span>).
-		<span class="t-fn">Tags</span>(<span class="t-str">"System"</span>)
+	store := <span class="t-fn">NewTodoStore</span>()
 
-	<span class="t-comm">// 2. List Users (Empty Request)</span>
-	gota.<span class="t-fn">Get</span>(app, <span class="t-str">"/users"</span>, <span class="t-kw">func</span>(ctx *gota.<span class="t-type">Context</span>, _ gota.<span class="t-type">Empty</span>) ([]<span class="t-type">UserResponse</span>, <span class="t-type">error</span>) {
-		<span class="t-kw">return</span> mockUsers, <span class="t-kw">nil</span>
-	}).
-		<span class="t-fn">Summary</span>(<span class="t-str">"List all users"</span>).
-		<span class="t-fn">Tags</span>(<span class="t-str">"Users"</span>)
+	<span class="t-comm">// Redirect root to Scalar UI and hide this route from OpenAPI/SDK</span>
+	app.<span class="t-fn">Get</span>(<span class="t-str">"/"</span>, <span class="t-kw">func</span>(ctx *gota.<span class="t-type">Context</span>) <span class="t-type">error</span> {
+		<span class="t-kw">return</span> ctx.<span class="t-fn">Redirect</span>(<span class="t-str">"/docs"</span>)
+	}).<span class="t-fn">Hidden</span>()
 
-	<span class="t-comm">// 3. Get User by ID (Struct-based REPR Endpoint)</span>
-	userEndpoint := &<span class="t-type">GetUserEndpoint</span>{}
-	gota.<span class="t-fn">Get</span>(app, <span class="t-str">"/users/:id"</span>, userEndpoint.<span class="t-fn">Handle</span>).
-		<span class="t-fn">Summary</span>(<span class="t-str">"Get user by ID"</span>).
-		<span class="t-fn">Tags</span>(<span class="t-str">"Users"</span>)
+	gota.<span class="t-fn">HandleEndpoint</span>(app, http.MethodGet, <span class="t-str">"/todos"</span>, &amp;<span class="t-type">ListTodosEndpoint</span>{Store: store}).
+		<span class="t-fn">Summary</span>(<span class="t-str">"List all todos"</span>).
+		<span class="t-fn">Description</span>(<span class="t-str">"Returns all todo items in the store."</span>).
+		<span class="t-fn">Tags</span>(<span class="t-str">"Todos"</span>)
 
-	<span class="t-comm">// 4. Create User (Function-based REPR with automatic binding and validation)</span>
-	gota.<span class="t-fn">Post</span>(app, <span class="t-str">"/users"</span>, <span class="t-kw">func</span>(ctx *gota.<span class="t-type">Context</span>, req <span class="t-type">CreateUserRequest</span>) (<span class="t-type">UserResponse</span>, <span class="t-type">error</span>) {
-		newUser := <span class="t-type">UserResponse</span>{
-			ID:    <span class="t-str">"usr_3"</span>,
-			Name:  req.Name,
-			Email: req.Email,
-			Role:  req.Role,
-		}
-		mockUsers = append(mockUsers, newUser)
-		<span class="t-kw">return</span> newUser, <span class="t-kw">nil</span>
-	}).
-		<span class="t-fn">Status</span>(201).
-		<span class="t-fn">Summary</span>(<span class="t-str">"Register user"</span>).
-		<span class="t-fn">Description</span>(<span class="t-str">"Validates input data automatically and returns the created user (201 Created)"</span>).
-		<span class="t-fn">Tags</span>(<span class="t-str">"Users"</span>)
+	gota.<span class="t-fn">HandleEndpoint</span>(app, http.MethodGet, <span class="t-str">"/todos/:id"</span>, &amp;<span class="t-type">GetTodoEndpoint</span>{Store: store}).
+		<span class="t-fn">Summary</span>(<span class="t-str">"Get todo by ID"</span>).
+		<span class="t-fn">Description</span>(<span class="t-str">"Retrieves a single todo item by its unique identifier."</span>).
+		<span class="t-fn">Tags</span>(<span class="t-str">"Todos"</span>)
 
-	<span class="t-comm">// 5. Classic route (without REPR structs, for quick hooks)</span>
-	app.<span class="t-fn">Get</span>(<span class="t-str">"/ping"</span>, <span class="t-kw">func</span>(ctx *gota.<span class="t-type">Context</span>) <span class="t-type">error</span> {
-		<span class="t-kw">return</span> ctx.<span class="t-fn">Json</span>(gota.Map{<span class="t-str">"message"</span>: <span class="t-str">"pong"</span>})
-	}).<span class="t-fn">Summary</span>(<span class="t-str">"Ping Pong"</span>).<span class="t-fn">Tags</span>(<span class="t-str">"System"</span>)
+	gota.<span class="t-fn">HandleEndpoint</span>(app, http.MethodPost, <span class="t-str">"/todos"</span>, &amp;<span class="t-type">CreateTodoEndpoint</span>{Store: store}).
+		<span class="t-fn">Status</span>(http.StatusCreated).
+		<span class="t-fn">Summary</span>(<span class="t-str">"Create a new todo"</span>).
+		<span class="t-fn">Description</span>(<span class="t-str">"Validates the input payload and creates a new todo item."</span>).
+		<span class="t-fn">Tags</span>(<span class="t-str">"Todos"</span>)
 
 	<span class="t-kw">if</span> err := app.<span class="t-fn">ListenGraceful</span>(<span class="t-str">":3000"</span>); err != <span class="t-kw">nil</span> {
 		log.<span class="t-fn">Printf</span>(<span class="t-str">"Server error: %v"</span>, err)
