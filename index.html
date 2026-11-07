@@ -403,7 +403,7 @@ gota.<span class="t-fn">HandleEndpoint</span>(app, http.MethodPost, <span class=
 <span class="t-kw">type</span> <span class="t-type">TodoResponse</span> <span class="t-kw">struct</span> {
     ID       <span class="t-type">string</span> <span class="t-tag">`json:"id" doc:"Todo ID" example:"todo_1"`</span>
     Title    <span class="t-type">string</span> <span class="t-tag">`json:"title" doc:"Task title" example:"Review pull requests"`</span>
-    Priority <span class="t-type">string</span> <span class="t-tag">`json:"priority" doc:"Task priority" example:"normal"`</span>
+    Priority <span class="t-type">string</span> <span class="t-tag">`json:"priority" doc:"Task priority" example:"normal" validate:"oneof=low,normal,high"`</span>
     Done     <span class="t-type">bool</span>   <span class="t-tag">`json:"done" doc:"Completion status" example:"false"`</span>
 }
 
@@ -454,7 +454,7 @@ app.<span class="t-fn">UseDocs</span>(gota.<span class="t-fn">BasicAuth</span>(<
 <span class="t-kw">export interface</span> <span class="t-type">TodoResponse</span> {
   id: <span class="t-type">string</span>;
   title: <span class="t-type">string</span>;
-  priority: <span class="t-type">string</span>;
+  priority: <span class="t-str">"low"</span> | <span class="t-str">"normal"</span> | <span class="t-str">"high"</span>;
   done: <span class="t-type">boolean</span>;
 }
 
@@ -760,7 +760,7 @@ console.<span class="t-fn">log</span>(todo.title); <span class="t-comm">// 100% 
 <span class="t-kw">type</span> <span class="t-type">TodoResponse</span> <span class="t-kw">struct</span> {
 	ID       <span class="t-type">string</span> <span class="t-tag">`json:"id" doc:"Todo ID" example:"todo_1"`</span>
 	Title    <span class="t-type">string</span> <span class="t-tag">`json:"title" doc:"Task title" example:"Review pull requests"`</span>
-	Priority <span class="t-type">string</span> <span class="t-tag">`json:"priority" doc:"Task priority" example:"normal"`</span>
+	Priority <span class="t-type">string</span> <span class="t-tag">`json:"priority" doc:"Task priority" example:"normal" validate:"oneof=low,normal,high"`</span>
 	Done     <span class="t-type">bool</span>   <span class="t-tag">`json:"done" doc:"Completion status" example:"false"`</span>
 }
 
